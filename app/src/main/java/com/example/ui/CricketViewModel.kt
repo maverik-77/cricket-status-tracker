@@ -18,9 +18,41 @@ class CricketViewModel(
     private val _activeTab = MutableStateFlow(0)
     val activeTab: StateFlow<Int> = _activeTab.asStateFlow()
 
-    // Selected Player for detailed statistical breakdown (null = Team performance summary)
+    // Selected Player for detailed statistical breakdown (the single tracked player)
     private val _selectedPlayer = MutableStateFlow<Player?>(null)
     val selectedPlayer: StateFlow<Player?> = _selectedPlayer.asStateFlow()
+
+    // Raw reactive flows from database
+    val playersFlow: Flow<List<Player>> = repository.allPlayers
+    val performancesFlow: Flow<List<MatchPerformance>> = repository.allPerformances
+
+    init {
+        var hasAttemptedInit = false
+        viewModelScope.launch {
+            playersFlow.collect { list ->
+                if (list.isEmpty() && !hasAttemptedInit) {
+                    hasAttemptedInit = true
+                    val defaultPlayer = Player(
+                        name = "Your Profile",
+                        role = "All-Rounder",
+                        team = "Thunder CC",
+                        jerseyNumber = "7",
+                        avatarColorIndex = 0
+                    )
+                    repository.insertPlayer(defaultPlayer)
+                } else if (list.isNotEmpty()) {
+                    val previouslySelected = _selectedPlayer.value
+                    if (previouslySelected == null) {
+                        _selectedPlayer.value = list.first()
+                    } else {
+                        // Sync edited state
+                        val updated = list.find { it.id == previouslySelected.id } ?: list.first()
+                        _selectedPlayer.value = updated
+                    }
+                }
+            }
+        }
+    }
 
     // Filters & Search
     private val _searchQuery = MutableStateFlow("")
@@ -28,10 +60,6 @@ class CricketViewModel(
 
     private val _filterRole = MutableStateFlow<String?>(null) // null = All
     val filterRole: StateFlow<String?> = _filterRole.asStateFlow()
-
-    // Raw reactive flows from database
-    val playersFlow: Flow<List<Player>> = repository.allPlayers
-    val performancesFlow: Flow<List<MatchPerformance>> = repository.allPerformances
 
     // Filtered Players list based on search and role filters
     val filteredPlayers: StateFlow<List<Player>> = combine(
@@ -98,6 +126,21 @@ class CricketViewModel(
                 avatarColorIndex = colorIndex
             )
             repository.insertPlayer(newPlayer)
+        }
+    }
+
+    fun updatePlayer(id: Int, name: String, role: String, team: String, jersey: String, colorIndex: Int) {
+        viewModelScope.launch {
+            val updatedPlayer = Player(
+                id = id,
+                name = name.trim(),
+                role = role,
+                team = team.trim(),
+                jerseyNumber = jersey.trim(),
+                avatarColorIndex = colorIndex
+            )
+            repository.insertPlayer(updatedPlayer)
+            _selectedPlayer.value = updatedPlayer
         }
     }
 

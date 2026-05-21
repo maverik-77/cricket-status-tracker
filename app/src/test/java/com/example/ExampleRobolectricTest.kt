@@ -16,6 +16,17 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("My Application", appName)
+    assertEquals("Cricket Stats Tracker", appName)
+  }
+
+  @Test
+  fun `launch MainActivity to diagnose crashes`() {
+    androidx.test.core.app.ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+      scenario.onActivity { activity ->
+        org.junit.Assert.assertNotNull(activity)
+      }
+    }
   }
 }
+
+
