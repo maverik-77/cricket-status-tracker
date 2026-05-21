@@ -1,0 +1,6 @@
+{
+  "name": "Cricket Stats Tracker",
+  "description": "An offline-first cricket player performance tracker that allows monitoring batting, bowling, matches, and custom stats with beautiful lists, interactive add-performance views, and visual performance summaries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
