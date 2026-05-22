@@ -17,13 +17,13 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = BallRedClassic,
     background = DarkBg,
     surface = DarkSurface,
-    onPrimary = Color(0xFF121813),
-    onSecondary = Color(0xFF1E261F),
+    onPrimary = Color(0xFF030712),            // Dark deep navy slate ink
+    onSecondary = Color(0xFF0A0F1D),          // Dark background dark text
     onTertiary = Color.White,
-    onBackground = Color(0xFFE8F5E9),
-    onSurface = Color(0xFFE8F5E9),
+    onBackground = Color(0xFFF1F5F9),         // Slate white
+    onSurface = Color(0xFFF1F5F9),             // Slate white
     surfaceVariant = DarkSurfaceElevated,
-    onSurfaceVariant = Color(0xFFC8E6C9)
+    onSurfaceVariant = Color(0xFF90CAF9)       // Soft athletic blue contrast text
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -35,10 +35,10 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = Color(0xFF112015),
-    onSurface = Color(0xFF112015),
+    onBackground = Color(0xFF0B1424),         // Rich dark sports navy
+    onSurface = Color(0xFF0B1424),             // Rich dark sports navy
     surfaceVariant = LightSurfaceElevated,
-    onSurfaceVariant = Color(0xFF2E7D32)
+    onSurfaceVariant = Color(0xFF1565C0)       // High contrast classic blue
 )
 
 @Composable

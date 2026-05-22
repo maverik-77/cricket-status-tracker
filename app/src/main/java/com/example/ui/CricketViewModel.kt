@@ -169,7 +169,8 @@ class CricketViewModel(
         runsConceded: Int,
         wickets: Int,
         maidens: Int,
-        ageGroup: String
+        ageGroup: String,
+        date: Long = System.currentTimeMillis()
     ) {
         viewModelScope.launch {
             // Convert overs to total balls bowled inside database for precision
@@ -192,7 +193,8 @@ class CricketViewModel(
                 ballsBowled = if (didBowl) totalBallsBowled else 0,
                 runsConceded = if (didBowl) runsConceded else 0,
                 wicketsTaken = if (didBowl) wickets else 0,
-                maidensBowled = if (didBowl) maidens else 0
+                maidensBowled = if (didBowl) maidens else 0,
+                date = date
             )
 
             repository.insertPerformance(performance)

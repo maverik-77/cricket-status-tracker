@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -96,8 +98,8 @@ fun CricketDashboard(
         ) {
             // App Hero / Title
             CricketHeroSection(
-                onResetSelection = { },
-                selectedPlayerName = null
+                player = selectedPlayer,
+                onEditProfile = { showEditPlayerDialog = true }
             )
 
             // Tabs Layout
@@ -201,7 +203,6 @@ fun CricketDashboard(
                     when (targetTab) {
                         0 -> PlayersTabContent(
                             player = selectedPlayer,
-                            onEditProfile = { showEditPlayerDialog = true },
                             viewModel = viewModel
                         )
                         1 -> MatchLogTabContent(
@@ -238,26 +239,26 @@ fun CricketDashboard(
     }
 
     if (showAddPerformanceDialog) {
-        AddPerformanceDialog(
-            players = players,
-            selectedPlayer = selectedPlayer,
-            onDismiss = { showAddPerformanceDialog = false },
-            onConfirm = { playerId, opponent, format, ageGroup, didBat, runs, balls, isNotOut, fours, sixes, didBowl, overs, runsCon, wickets, maidens ->
-                viewModel.addMatchPerformance(
-                    playerId, opponent, format, didBat, runs, balls, isNotOut, fours, sixes,
-                    didBowl, overs, runsCon, wickets, maidens, ageGroup
-                )
-                showAddPerformanceDialog = false
-            }
-        )
-    }
+         AddPerformanceDialog(
+             players = players,
+             selectedPlayer = selectedPlayer,
+             onDismiss = { showAddPerformanceDialog = false },
+             onConfirm = { playerId, opponent, format, ageGroup, didBat, runs, balls, isNotOut, fours, sixes, didBowl, overs, runsCon, wickets, maidens, date ->
+                 viewModel.addMatchPerformance(
+                     playerId, opponent, format, didBat, runs, balls, isNotOut, fours, sixes,
+                     didBowl, overs, runsCon, wickets, maidens, ageGroup, date
+                 )
+                 showAddPerformanceDialog = false
+             }
+         )
+     }
 }
 
 // --- Top Title / Hero header component ---
 @Composable
 fun CricketHeroSection(
-    onResetSelection: () -> Unit,
-    selectedPlayerName: String?
+    player: Player?,
+    onEditProfile: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -299,101 +300,76 @@ fun CricketHeroSection(
             .statusBarsPadding()
             .padding(18.dp)
     ) {
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
-                    Text(
-                        text = "Cricket Stats",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
-                            letterSpacing = 0.5.sp
-                        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = player?.name ?: "Cricket Stats",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        letterSpacing = 0.5.sp
                     )
-                    Text(
-                        text = "Real-time batting, bowling, matches & averages tracker",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = TurfGreenSoft,
-                            fontWeight = FontWeight.Medium
-                        )
+                )
+                Text(
+                    text = "${player?.role ?: "All-Rounder"} • ${player?.team ?: "Thunder CC"}${if (player?.jerseyNumber?.isNotEmpty() == true) " (#" + player.jerseyNumber + ")" else ""}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = TurfGreenSoft,
+                        fontWeight = FontWeight.Bold
                     )
-                }
-
-                // App symbol - beautifully crafted red leather cricket ball with white seam stitch
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(BallRedClassic)
-                        .padding(4.dp)
-                        .drawBehind {
-                            // Gloss highlight shininess
-                            drawCircle(
-                                color = Color.White.copy(alpha = 0.18f),
-                                radius = size.minDimension / 2.4f,
-                                center = Offset(size.width * 0.35f, size.height * 0.35f)
-                            )
-                            // White stitched leather ball seam line
-                            val seamPath = Path().apply {
-                                moveTo(size.width / 2f, 0f)
-                                cubicTo(
-                                    size.width / 2f - 4.dp.toPx(), size.height * 0.3f,
-                                    size.width / 2f - 4.dp.toPx(), size.height * 0.7f,
-                                    size.width / 2f, size.height
-                                )
-                            }
-                            drawPath(
-                                path = seamPath,
-                                color = Color.White.copy(alpha = 0.85f),
-                                style = Stroke(
-                                    width = 2.dp.toPx(),
-                                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
-                                )
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = "Icon badge",
-                        tint = WicketGold,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                )
             }
 
-            // Interactive Breadcrumb showing focus context
-            AnimatedVisibility(
-                visible = selectedPlayerName != null,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+            // Clickable custom themed cricket ball profile avatar
+            val colorIdx = player?.let { ((it.avatarColorIndex % AvatarColors.size) + AvatarColors.size) % AvatarColors.size } ?: 0
+            val playerColor = AvatarColors[colorIdx]
+
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(playerColor)
+                    .border(1.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                    .clickable { onEditProfile() }
+                    .padding(4.dp)
+                    .drawBehind {
+                        // Gloss shine highlight
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.18f),
+                            radius = size.minDimension / 2.4f,
+                            center = Offset(size.width * 0.35f, size.height * 0.35f)
+                        )
+                        // White stitched leather ball seam line to keep cricket theme
+                        val seamPath = Path().apply {
+                            moveTo(size.width / 2f, 0f)
+                            cubicTo(
+                                size.width / 2f - 4.dp.toPx(), size.height * 0.3f,
+                                size.width / 2f - 4.dp.toPx(), size.height * 0.7f,
+                                size.width / 2f, size.height
+                            )
+                        }
+                        drawPath(
+                            path = seamPath,
+                            color = Color.White.copy(alpha = 0.85f),
+                            style = Stroke(
+                                width = 1.5.dp.toPx(),
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
+                            )
+                        )
+                    }
+                    .testTag("header_profile_avatar"),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(top = 12.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .clickable { onResetSelection() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back to Overall Team Dashboard",
-                        tint = WicketGold,
-                        modifier = Modifier.size(16.dp)
+                Text(
+                    text = player?.name?.firstOrNull()?.uppercase() ?: "?",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Filtering: $selectedPlayerName (Click to reset)",
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
-                    )
-                }
+                )
             }
         }
     }
@@ -483,7 +459,6 @@ fun HorizontalPlayerSelector(
 @Composable
 fun PlayersTabContent(
     player: Player?,
-    onEditProfile: () -> Unit,
     viewModel: CricketViewModel
 ) {
     if (player == null) {
@@ -499,7 +474,11 @@ fun PlayersTabContent(
     val playerPerfFlow = remember(player.id) { viewModel.getPerformancesForPlayer(player.id) }
     val playerPerf: List<MatchPerformance> by playerPerfFlow.collectAsState(initial = emptyList())
     val careerStats = viewModel.computeStats(playerPerf)
-    val avatarColor = AvatarColors[player.avatarColorIndex % AvatarColors.size]
+
+    // Form tracker - last 5 performances
+    val recentInnings = remember(playerPerf) {
+        playerPerf.sortedByDescending { it.date }.take(5)
+    }
 
     Column(
         modifier = Modifier
@@ -508,145 +487,172 @@ fun PlayersTabContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // --- 1. Large Polished Profile Header Card ---
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Profile large circle avatar
-                    Box(modifier = Modifier.size(72.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(avatarColor, avatarColor.copy(alpha = 0.7f))
-                                    )
-                                )
-                                .border(2.dp, Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = player.name.firstOrNull()?.uppercase() ?: "?",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White
-                                )
-                            )
-                        }
-                        // Subtitle jersey overlay badge
-                        if (player.jerseyNumber.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(WicketGold)
-                                    .border(1.dp, Color.White, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = player.jerseyNumber,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Black,
-                                        color = TurfGreenPrimary
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = player.name,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = player.role,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                text = "•",
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                                fontSize = 12.sp
-                            )
-                            Text(
-                                text = player.team,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onEditProfile,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit profile settings",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Edit Profile & Theme", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
         // --- 2. Highlights Stat Overviews Row ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            StatHeaderCard(label = "Matches", value = "${careerStats.totalMatches}", activeColor = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-            StatHeaderCard(label = "Runs Scored", value = "${careerStats.totalRuns}", activeColor = TurfGreenClassic, modifier = Modifier.weight(1f))
-            StatHeaderCard(label = "Wickets Taken", value = "${careerStats.totalWickets}", activeColor = BallRedClassic, modifier = Modifier.weight(1f))
+            StatHeaderCard(label = "Matches Played", value = "${careerStats.totalMatches}", activeColor = MaterialTheme.colorScheme.primary, icon = Icons.Default.DateRange, modifier = Modifier.weight(1f))
+            StatHeaderCard(label = "Career Runs", value = "${careerStats.totalRuns}", activeColor = TurfGreenClassic, icon = Icons.Default.Star, modifier = Modifier.weight(1f))
+            StatHeaderCard(label = "Innings Wickets", value = "${careerStats.totalWickets}", activeColor = BallRedClassic, icon = Icons.Default.CheckCircle, modifier = Modifier.weight(1f))
+        }
+
+        // --- Recent Innings Form Segment ---
+        if (recentInnings.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "RECENT FORM (LAST 5 INNINGS)",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+                
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    items(recentInnings) { inning ->
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+                            modifier = Modifier.widthIn(min = 110.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = inning.opponent,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (inning.didBat) {
+                                        val runText = if (inning.isNotOut) "${inning.runsScored}*" else "${inning.runsScored}"
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(
+                                                    if (inning.runsScored >= 50) WicketGold.copy(alpha = 0.2f)
+                                                    else if (inning.runsScored >= 30) TurfGreenClassic.copy(alpha = 0.15f)
+                                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                                )
+                                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = runText,
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Black),
+                                                    color = if (inning.runsScored >= 50) WicketWood else TurfGreenClassic
+                                                )
+                                                Text(
+                                                    text = " R",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (inning.didBowl) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(
+                                                    if (inning.wicketsTaken >= 3) BallRedClassic.copy(alpha = 0.2f)
+                                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                                )
+                                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "${inning.wicketsTaken}/${inning.runsConceded}",
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Black),
+                                                    color = if (inning.wicketsTaken >= 3) BallRedClassic else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = " W",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = inning.matchFormat,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // --- 3. Complete Batting Statistics Section ---
-        Text(
-            text = "BATTING PROFILE",
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp
-            ),
-            color = TurfGreenClassic,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(TurfGreenClassic.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = TurfGreenClassic,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Text(
+                text = "BATTING PROFILE",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp
+                ),
+                color = TurfGreenClassic
+            )
+        }
 
         Card(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-            modifier = Modifier.fillMaxWidth()
+            border = BorderStroke(1.dp, TurfGreenClassic.copy(alpha = 0.12f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    clip = false,
+                    ambientColor = TurfGreenClassic.copy(alpha = 0.1f),
+                    spotColor = TurfGreenClassic.copy(alpha = 0.1f)
+                )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -654,9 +660,9 @@ fun PlayersTabContent(
                     MetricBlock(label = "Average", value = careerStats.battingAvg, valueColor = TurfGreenClassic, modifier = Modifier.weight(1f))
                     MetricBlock(label = "Strike Rate", value = careerStats.battingStrikeRate, modifier = Modifier.weight(1f))
                 }
-                Spacer(modifier = Modifier.height(14.dp))
-                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                Spacer(modifier = Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     MetricBlock(label = "Highest", value = careerStats.highestScoreFormatted, modifier = Modifier.weight(1f))
                     MetricBlock(label = "Fours (4s)", value = "${careerStats.totalFours}", modifier = Modifier.weight(1f))
@@ -666,21 +672,48 @@ fun PlayersTabContent(
         }
 
         // --- 4. Complete Bowling Statistics Section ---
-        Text(
-            text = "BOWLING PROFILE",
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp
-            ),
-            color = BallRedClassic,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(BallRedClassic.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = BallRedClassic,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Text(
+                text = "BOWLING PROFILE",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp
+                ),
+                color = BallRedClassic
+            )
+        }
 
         Card(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-            modifier = Modifier.fillMaxWidth()
+            border = BorderStroke(1.dp, BallRedClassic.copy(alpha = 0.12f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    clip = false,
+                    ambientColor = BallRedClassic.copy(alpha = 0.1f),
+                    spotColor = BallRedClassic.copy(alpha = 0.1f)
+                )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -688,9 +721,9 @@ fun PlayersTabContent(
                     MetricBlock(label = "Economy", value = careerStats.bowlingEconomy, valueColor = BallRedClassic, modifier = Modifier.weight(1f))
                     MetricBlock(label = "Average", value = careerStats.bowlingAvg, modifier = Modifier.weight(1f))
                 }
-                Spacer(modifier = Modifier.height(14.dp))
-                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                Spacer(modifier = Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     MetricBlock(label = "Overs", value = careerStats.bowlingOvers, modifier = Modifier.weight(1f))
                     MetricBlock(label = "Runs Con", value = "${careerStats.totalRunsConceded}", modifier = Modifier.weight(1f))
@@ -708,29 +741,83 @@ fun StatHeaderCard(
     label: String,
     value: String,
     activeColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, activeColor.copy(alpha = 0.15f)),
         modifier = modifier
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(18.dp),
+                clip = false,
+                ambientColor = activeColor.copy(alpha = 0.3f),
+                spotColor = activeColor.copy(alpha = 0.3f)
+            )
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    // Soft light ambient tint at top right edge
+                    drawCircle(
+                        color = activeColor.copy(alpha = 0.04f),
+                        radius = size.maxDimension * 0.4f,
+                        center = Offset(size.width, 0f)
+                    )
+                }
+                .padding(14.dp)
         ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                color = activeColor
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
+            Column(
+                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(activeColor.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = activeColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(2.dp))
+                
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.2.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                )
+            }
         }
     }
 }
@@ -743,19 +830,32 @@ fun MetricBlock(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier
+            .padding(horizontal = 4.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f))
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.2).sp
+            ),
             color = if (valueColor != Color.Unspecified) valueColor else MaterialTheme.colorScheme.onSurface
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -769,7 +869,7 @@ fun PlayerCard(
     onSelect: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val avatarColor = AvatarColors[player.avatarColorIndex % AvatarColors.size]
+    val avatarColor = AvatarColors[((player.avatarColorIndex % AvatarColors.size) + AvatarColors.size) % AvatarColors.size]
     
     Card(
         shape = RoundedCornerShape(18.dp),
@@ -894,7 +994,7 @@ fun PlayerCard(
                 }
             }
 
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier.padding(vertical = 12.dp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
             )
@@ -1043,40 +1143,73 @@ fun InningLogCard(
     colorIndex: Int,
     onDelete: () -> Unit
 ) {
+    var showDetailDialog by remember { mutableStateOf(false) }
     val formatter = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
     val dateString = remember(performance.date) { formatter.format(Date(performance.date)) }
 
+    val colorIdx = ((colorIndex % AvatarColors.size) + AvatarColors.size) % AvatarColors.size
+    val playerColor = AvatarColors[colorIdx]
+
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-        modifier = Modifier.fillMaxWidth()
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDetailDialog = true }
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header: Format, date, player avatar, delete option
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Player Small Bubble/Initial (great for general log visual check)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(playerColor),
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Match format badge
+                Text(
+                    text = playerName.firstOrNull()?.uppercase() ?: "?",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White
+                )
+            }
+
+            // Match Info (Opponent + Format + Date)
+            Column(modifier = Modifier.weight(1.2f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = performance.opponent,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    // Match Format mini tag
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(4.dp))
                             .background(
                                 when (performance.matchFormat) {
-                                    "T20" -> TurfGreenClassic.copy(alpha = 0.15f)
-                                    "ODI" -> WicketGold.copy(alpha = 0.15f)
-                                    else -> BallRedClassic.copy(alpha = 0.15f)
+                                    "T20" -> TurfGreenClassic.copy(alpha = 0.12f)
+                                    "ODI" -> WicketGold.copy(alpha = 0.12f)
+                                    else -> BallRedClassic.copy(alpha = 0.12f)
                                 }
                             )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = performance.matchFormat,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
                             color = when (performance.matchFormat) {
                                 "T20" -> TurfGreenClassic
                                 "ODI" -> WicketWood
@@ -1084,213 +1217,474 @@ fun InningLogCard(
                             }
                         )
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // Age group badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                when (performance.ageGroup) {
-                                    "U15" -> Color(0xFF1E88E5).copy(alpha = 0.15f)
-                                    "U17" -> Color(0xFF8E24AA).copy(alpha = 0.15f)
-                                    else -> Color(0xFFE53935).copy(alpha = 0.15f)
-                                }
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = performance.ageGroup,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = when (performance.ageGroup) {
-                                    "U15" -> Color(0xFF1E88E5)
-                                    "U17" -> Color(0xFF8E24AA)
-                                    else -> Color(0xFFE53935)
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "vs ${performance.opponent}",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = dateString,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Delete this logged match performance",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Player who compiled the innings
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                val colorIdx = ((colorIndex % AvatarColors.size) + AvatarColors.size) % AvatarColors.size
-                val color = AvatarColors[colorIdx]
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                ) {
-                    Text(
-                        text = playerName.firstOrNull()?.uppercase() ?: "?",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(1.dp))
+                // Row for Player name + Date in tiny text
                 Text(
-                    text = playerName,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = "$playerName • $dateString",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Divider(
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                modifier = Modifier.padding(vertical = 10.dp)
-            )
-
-            // Performance scorecard blocks side-by-side
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Batting Summary Section
+            Box(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (performance.didBat) TurfGreenClassic.copy(alpha = 0.05f) 
+                        else Color.Transparent
+                    )
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                // Batting Score outline
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f))
-                        .padding(10.dp)
+                Column {
+                    Text(
+                        text = "BATTING",
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TurfGreenClassic.copy(alpha = 0.8f),
+                        letterSpacing = 0.5.sp
+                    )
+                    if (performance.didBat) {
+                        Text(
+                            text = androidx.compose.ui.text.buildAnnotatedString {
+                                val runText = if (performance.isNotOut) "${performance.runsScored}*" else "${performance.runsScored}"
+                                append(runText)
+                                addStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Black, color = TurfGreenClassic, fontSize = 12.sp), 0, length)
+                                val ballsText = " (${performance.ballsFaced}b)"
+                                append(ballsText)
+                                addStyle(androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 9.sp, fontWeight = FontWeight.Bold), length - ballsText.length, length)
+                            },
+                            maxLines = 1
+                        )
+                    } else {
+                        Text(
+                            text = "DNB",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    }
+                }
+            }
+
+            // Bowling Summary Section
+            Box(
+                modifier = Modifier
+                    .weight(0.9f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (performance.didBowl) BallRedClassic.copy(alpha = 0.05f) 
+                        else Color.Transparent
+                    )
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Column {
+                    Text(
+                        text = "BOWLING",
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = BallRedClassic.copy(alpha = 0.8f),
+                        letterSpacing = 0.5.sp
+                    )
+                    if (performance.didBowl) {
+                        Text(
+                            text = androidx.compose.ui.text.buildAnnotatedString {
+                                val fig = "${performance.wicketsTaken}/${performance.runsConceded}"
+                                append(fig)
+                                addStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Black, color = BallRedClassic, fontSize = 12.sp), 0, length)
+                                val ovText = " (${performance.getOversFormatted()} ov)"
+                                append(ovText)
+                                addStyle(androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 9.sp, fontWeight = FontWeight.Bold), length - ovText.length, length)
+                            },
+                            maxLines = 1
+                        )
+                    } else {
+                        Text(
+                            text = "DNB",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    }
+                }
+            }
+
+            // Info details anchor icon
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "Expand scorecard detail popup",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                modifier = Modifier.size(14.dp)
+            )
+        }
+    }
+
+    if (showDetailDialog) {
+        // Overlay dialog displaying more detailed information beautifully!
+        AlertDialog(
+            onDismissRequest = { showDetailDialog = false },
+            confirmButton = {
+                Button(
+                    onClick = { showDetailDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
+                    Text("Close")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDetailDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete record icon",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Delete Record")
+                }
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(playerColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = playerName.firstOrNull()?.uppercase() ?: "?",
+                            style = MaterialTheme.typography.titleMedium.copy(color = Color.White, fontWeight = FontWeight.Bold)
+                        )
+                    }
                     Column {
                         Text(
-                            text = "BATTING",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TurfGreenClassic
+                            text = playerName,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        if (performance.didBat) {
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    text = "${performance.runsScored}",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                if (performance.isNotOut) {
-                                    Text(
-                                        text = "*",
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = WicketGold,
-                                        modifier = Modifier.offset(y = (-4).dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "(${performance.ballsFaced}b)",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                    modifier = Modifier.padding(bottom = 3.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Match performance on $dateString",
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Match & Team Metadata Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f))
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
                             Text(
-                                text = "4s: ${performance.fours}  •  6s: ${performance.sixes}",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                text = "OPPONENT",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
-                        } else {
                             Text(
-                                text = "DNB (Did Not Bat)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(vertical = 4.dp)
+                                text = performance.opponent,
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.ExtraBold)
+                            )
+                        }
+                        
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "FORMAT & CATEGORY",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = "${performance.matchFormat} • ${performance.ageGroup}",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             )
                         }
                     }
-                }
 
-                // Bowling Score outline
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f))
-                        .padding(10.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "BOWLING",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = BallRedClassic
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        if (performance.didBowl) {
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    text = "${performance.wicketsTaken}",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = BallRedClassic
-                                )
-                                Text(
-                                    text = " for ${performance.runsConceded}",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.padding(bottom = 3.dp)
-                                )
+                    // Detailed Batting Segment
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, TurfGreenClassic.copy(alpha = 0.15f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(TurfGreenClassic.copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = TurfGreenClassic,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "BATTING PERFORMANCE",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                                        color = TurfGreenClassic
+                                    )
+                                }
+                                if (!performance.didBat) {
+                                    Text(
+                                        text = "Did Not Bat",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${performance.getOversFormatted()} ovs  •  Mdn: ${performance.maidensBowled}",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        } else {
-                            Text(
-                                text = "DNB (Did Not Bowl)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
+
+                            if (performance.didBat) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Runs Scored",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = if (performance.isNotOut) "${performance.runsScored}*" else "${performance.runsScored}",
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Balls Faced",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = "${performance.ballsFaced}",
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1.2f)) {
+                                        Text(
+                                            text = "Strike Rate",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        val sr = if (performance.ballsFaced > 0) String.format(Locale.US, "%.1f", (performance.runsScored.toDouble() / performance.ballsFaced) * 100) else "0.0"
+                                        Text(
+                                            text = "$sr",
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TurfGreenClassic)
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Fours (4s): ",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        Text(
+                                            text = "${performance.fours}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Sixes (6s): ",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        Text(
+                                            text = "${performance.sixes}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Status: ",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        Text(
+                                            text = if (performance.isNotOut) "Not Out" else "Out",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = if (performance.isNotOut) TurfGreenClassic else MaterialTheme.colorScheme.onSurface)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Detailed Bowling Segment
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, BallRedClassic.copy(alpha = 0.15f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(BallRedClassic.copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = BallRedClassic,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "BOWLING PERFORMANCE",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                                        color = BallRedClassic
+                                    )
+                                }
+                                if (!performance.didBowl) {
+                                    Text(
+                                        text = "Did Not Bowl",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                    )
+                                }
+                            }
+
+                            if (performance.didBowl) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Wickets",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = "${performance.wicketsTaken}",
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = BallRedClassic)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Runs Conceded",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = "${performance.runsConceded}",
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1.2f)) {
+                                        Text(
+                                            text = "Overs Bowled",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = performance.getOversFormatted(),
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Maidens: ",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        Text(
+                                            text = "${performance.maidensBowled}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Economy Rate: ",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                        )
+                                        val econ = if (performance.ballsBowled > 0) String.format(Locale.US, "%.2f", (performance.runsConceded.toDouble() / (performance.ballsBowled / 6.0))) else "0.00"
+                                        Text(
+                                            text = "$econ",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = BallRedClassic)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
-        }
+        )
     }
 }
 
@@ -1303,9 +1697,50 @@ fun InsightsTabContent(
     viewModel: CricketViewModel
 ) {
     var selectedAgeFilter by remember { mutableStateOf("All") }
+    var selectedDateFilter by remember { mutableStateOf("All") }
 
-    val filteredPerformances = remember(performances, selectedAgeFilter) {
-        if (selectedAgeFilter == "All") performances else performances.filter { it.ageGroup == selectedAgeFilter }
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val displaySdf = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
+
+    // Group performances by their calendar day
+    val performancesByDay = remember(performances) {
+        performances.groupBy { perf ->
+            sdf.format(Date(perf.date))
+        }
+    }
+
+    val availableDays = remember(performancesByDay) {
+        performancesByDay.keys.sortedDescending() // Latest first
+    }
+
+    var selectedSpecificDayStr by remember { mutableStateOf<String?>(null) }
+    var showMatchSelectorDialog by remember { mutableStateOf(false) }
+
+    val activeDayStr = selectedSpecificDayStr ?: availableDays.firstOrNull()
+
+    val dateFilteredPerformances = remember(performances, selectedDateFilter, activeDayStr, performancesByDay) {
+        when (selectedDateFilter) {
+            "Match" -> {
+                if (activeDayStr != null) {
+                    performancesByDay[activeDayStr] ?: emptyList()
+                } else {
+                    emptyList()
+                }
+            }
+            "Week" -> {
+                val oneWeekAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
+                performances.filter { it.date >= oneWeekAgo }
+            }
+            "Month" -> {
+                val oneMonthAgo = System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L
+                performances.filter { it.date >= oneMonthAgo }
+            }
+            else -> performances
+        }
+    }
+
+    val filteredPerformances = remember(dateFilteredPerformances, selectedAgeFilter) {
+        if (selectedAgeFilter == "All") dateFilteredPerformances else dateFilteredPerformances.filter { it.ageGroup == selectedAgeFilter }
     }
     val stats = remember(filteredPerformances) { viewModel.computeStats(filteredPerformances) }
 
@@ -1410,6 +1845,134 @@ fun InsightsTabContent(
             }
         }
 
+        // Date range filter chips row
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "Filter analytics by Game Match Date range:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf(
+                            Triple("Match", "This Match", PitchBlueClassic),
+                            Triple("Week", "This Week", PitchBlueLighter),
+                            Triple("Month", "This Month", PitchBlueClassic),
+                            Triple("All", "All Matches", MaterialTheme.colorScheme.primary)
+                        ).forEach { (dateOpt, label, optColor) ->
+                            val isSelected = selectedDateFilter == dateOpt
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (isSelected) optColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                    )
+                                    .clickable { selectedDateFilter = dateOpt }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    if (selectedDateFilter == "Match") {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Active Match (Tap selector to choose another date):",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        val activePerfList = activeDayStr?.let { performancesByDay[it] } ?: emptyList()
+                        val matchCountStr = if (activePerfList.size == 1) "1 innings logged" else "${activePerfList.size} innings logged"
+                        val matchOpponents = activePerfList.map { it.opponent }.distinct().joinToString(" & ")
+                        val formattedDate = activeDayStr?.let {
+                            try {
+                                val d = sdf.parse(it)
+                                if (d != null) displaySdf.format(d) else it
+                            } catch (e: Exception) {
+                                it
+                            }
+                        } ?: "No match selected"
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(PitchBlueClassic.copy(alpha = 0.08f))
+                                .border(1.dp, PitchBlueClassic.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                .clickable { showMatchSelectorDialog = true }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = "Select Match Date",
+                                tint = PitchBlueClassic,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = formattedDate,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = PitchBlueClassic
+                                )
+                                if (matchOpponents.isNotEmpty()) {
+                                    Text(
+                                        text = "vs $matchOpponents ($matchCountStr)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Dropdown Arrow",
+                                tint = PitchBlueClassic,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showMatchSelectorDialog) {
+            item {
+                MatchDateSelectionDialog(
+                    availableDays = availableDays,
+                    performancesByDay = performancesByDay,
+                    currentSelectedDayStr = activeDayStr,
+                    onDismiss = { showMatchSelectorDialog = false },
+                    onSelectDay = { dayStr -> 
+                        selectedSpecificDayStr = dayStr
+                    }
+                )
+            }
+        }
+
         if (performances.isEmpty()) {
             item {
                 Card(
@@ -1444,7 +2007,7 @@ fun InsightsTabContent(
         } else {
             // Include Age Group Comparison Report card
             item {
-                AgeGroupComparisonReport(allPerformances = performances, viewModel = viewModel)
+                AgeGroupComparisonReport(allPerformances = dateFilteredPerformances, viewModel = viewModel)
             }
             // General Stats numerical summary
             item {
@@ -1461,7 +2024,7 @@ fun InsightsTabContent(
                     )
                     MetricBox(
                         title = "Form / Formats",
-                        value = performances.map { it.matchFormat }.distinct().joinToString("/"),
+                        value = filteredPerformances.map { it.matchFormat }.distinct().joinToString("/"),
                         icon = Icons.Default.LocationOn,
                         color = WicketWood,
                         modifier = Modifier.weight(1f)
@@ -1513,7 +2076,7 @@ fun InsightsTabContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        val battingScores = performances
+                        val battingScores = filteredPerformances
                             .filter { it.didBat }
                             .map { it.runsScored }
                             .reversed() // order chronological
@@ -1582,7 +2145,7 @@ fun InsightsTabContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        val wicketsList = performances
+                        val wicketsList = filteredPerformances
                             .filter { it.didBowl }
                             .map { it.wicketsTaken }
                             .reversed()
@@ -1672,6 +2235,7 @@ fun ScoresLineChart(
     val textColor = MaterialTheme.colorScheme.onSurface
 
     Canvas(modifier = modifier) {
+        if (scores.isEmpty()) return@Canvas
         val width = size.width
         val height = size.height
         val maxScore = (scores.maxOrNull() ?: 10).coerceAtLeast(30)
@@ -1825,6 +2389,7 @@ fun WicketsBarChart(
     val textColor = MaterialTheme.colorScheme.onSurface
     
     Canvas(modifier = modifier) {
+        if (wickets.isEmpty()) return@Canvas
         val width = size.width
         val height = size.height
         
@@ -2125,9 +2690,14 @@ fun AddPerformanceDialog(
         overs: Double,
         runsConceded: Int,
         wickets: Int,
-        maidens: Int
+        maidens: Int,
+        date: Long
     ) -> Unit
 ) {
+    val context = LocalContext.current
+    var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val sdf = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
+
     // Basic setup
     var chosenPlayerIndex by remember { 
         val defaultIdx = players.indexOfFirst { it.id == selectedPlayer?.id }
@@ -2274,6 +2844,56 @@ fun AddPerformanceDialog(
                                 }
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // --- DATE SELECTOR ---
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                        .clickable {
+                            val calendar = Calendar.getInstance().apply { timeInMillis = selectedDate }
+                            android.app.DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    val newCal = Calendar.getInstance().apply {
+                                        set(Calendar.YEAR, year)
+                                        set(Calendar.MONTH, month)
+                                        set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                    }
+                                    selectedDate = newCal.timeInMillis
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Match Date",
+                        tint = PitchBlueClassic,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Match Date (Tap to Change)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = sdf.format(Date(selectedDate)),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
 
@@ -2473,7 +3093,8 @@ fun AddPerformanceDialog(
                                     overs,
                                     runsCon,
                                     wickets,
-                                    maidens
+                                    maidens,
+                                    selectedDate
                                 )
                             }
                         },
@@ -2597,7 +3218,7 @@ fun AgeGroupComparisonReport(
                         color = if (groupStats.bowlingEconomy != "0.00" && groupStats.bowlingEconomy != "N/A") MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                 }
-                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -2638,3 +3259,137 @@ data class Quadruple<A, B, C, D>(
     val color: C,
     val keyID: D
 )
+
+@Composable
+fun MatchDateSelectionDialog(
+    availableDays: List<String>,
+    performancesByDay: Map<String, List<MatchPerformance>>,
+    currentSelectedDayStr: String?,
+    onDismiss: () -> Unit,
+    onSelectDay: (String) -> Unit
+) {
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val displaySdf = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Select Match Date",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
+                        color = PitchBlueClassic
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+
+                if (availableDays.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No matches logged yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                    ) {
+                        items(availableDays) { dayStr ->
+                            val isSelected = dayStr == currentSelectedDayStr
+                            val dayPerfs = performancesByDay[dayStr] ?: emptyList()
+                            val formattedDate = try {
+                                val d = sdf.parse(dayStr)
+                                if (d != null) displaySdf.format(d) else dayStr
+                            } catch (e: Exception) {
+                                dayStr
+                            }
+                            val matchOpponents = dayPerfs.map { it.opponent }.distinct().joinToString(" & ")
+                            val formats = dayPerfs.map { it.matchFormat }.distinct().joinToString("/")
+                            val ageGroups = dayPerfs.map { it.ageGroup }.distinct().joinToString("/")
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isSelected) PitchBlueClassic.copy(alpha = 0.12f)
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
+                                    )
+                                    .border(
+                                        width = 1.2.dp,
+                                        color = if (isSelected) PitchBlueClassic else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable {
+                                        onSelectDay(dayStr)
+                                        onDismiss()
+                                    }
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = if (isSelected) PitchBlueClassic else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = formattedDate,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold
+                                        ),
+                                        color = if (isSelected) PitchBlueClassic else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "vs $matchOpponents • $formats ($ageGroups)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
