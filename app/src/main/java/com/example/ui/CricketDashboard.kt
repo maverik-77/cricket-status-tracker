@@ -3314,14 +3314,16 @@ fun AgeGroupComparisonReport(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
-                    .padding(vertical = 10.dp, horizontal = 8.dp),
+                    .padding(vertical = 10.dp, horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Age Group", modifier = Modifier.weight(1.1f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)))
-                Text(text = "Matches", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)), textAlign = TextAlign.Center)
-                Text(text = "Bat Avg", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)), textAlign = TextAlign.Center)
-                Text(text = "Bowl Avg", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)), textAlign = TextAlign.Center)
-                Text(text = "Econ", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)), textAlign = TextAlign.Center)
+                Text(text = "Age Group", modifier = Modifier.weight(1.1f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp))
+                Text(text = "M", modifier = Modifier.weight(0.5f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
+                Text(text = "Runs", modifier = Modifier.weight(0.8f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
+                Text(text = "Bat Avg", modifier = Modifier.weight(1.0f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
+                Text(text = "Wkts", modifier = Modifier.weight(0.6f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
+                Text(text = "Bowl Avg", modifier = Modifier.weight(1.0f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
+                Text(text = "Econ", modifier = Modifier.weight(0.6f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
             }
 
             listOf(
@@ -3334,7 +3336,7 @@ fun AgeGroupComparisonReport(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                        .padding(vertical = 12.dp, horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Group name with a bold bullet indicator
@@ -3348,35 +3350,54 @@ fun AgeGroupComparisonReport(
                                 .clip(CircleShape)
                                 .background(item.color)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = item.label,
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                            maxLines = 1
                         )
                     }
 
                     // Matches
                     Text(
                         text = "${groupStats.totalMatches}",
-                        modifier = Modifier.weight(0.8f),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        modifier = Modifier.weight(0.5f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp),
                         textAlign = TextAlign.Center
+                    )
+
+                    // Runs
+                    Text(
+                        text = "${groupStats.totalRuns}",
+                        modifier = Modifier.weight(0.8f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                        textAlign = TextAlign.Center,
+                        color = if (groupStats.totalRuns > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
 
                     // Bat Avg with adaptive green color text
                     Text(
                         text = groupStats.battingAvg,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
+                        modifier = Modifier.weight(1.0f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 11.sp),
                         textAlign = TextAlign.Center,
                         color = if (groupStats.battingAvg != "0" && groupStats.battingAvg != "0.00" && groupStats.battingAvg != "N/A") TurfGreenClassic else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+
+                    // Wkts
+                    Text(
+                        text = "${groupStats.totalWickets}",
+                        modifier = Modifier.weight(0.6f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                        textAlign = TextAlign.Center,
+                        color = if (groupStats.totalWickets > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
 
                     // Bowl Avg with adaptive red color text
                     Text(
                         text = groupStats.bowlingAvg,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
+                        modifier = Modifier.weight(1.0f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold, fontSize = 11.sp),
                         textAlign = TextAlign.Center,
                         color = if (groupStats.bowlingAvg != "N/A" && groupStats.bowlingAvg != "0.00" && groupStats.bowlingAvg != "0") BallRedClassic else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
@@ -3384,8 +3405,8 @@ fun AgeGroupComparisonReport(
                     // Bowl Economy
                     Text(
                         text = groupStats.bowlingEconomy,
-                        modifier = Modifier.weight(0.8f),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        modifier = Modifier.weight(0.6f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium, fontSize = 11.sp),
                         textAlign = TextAlign.Center,
                         color = if (groupStats.bowlingEconomy != "0.00" && groupStats.bowlingEconomy != "N/A") MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
