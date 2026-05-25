@@ -15,6 +15,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,7 +85,7 @@ fun CricketDashboard(
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(bottom = innerPadding.calculateBottomPadding())
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
@@ -101,79 +106,94 @@ fun CricketDashboard(
                         Modifier
                             .tabIndicatorOffset(tabPositions[currentTab])
                             .fillMaxHeight()
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .padding(horizontal = 6.dp, vertical = 8.dp)
                             .clip(RoundedCornerShape(24.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                     )
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
                 Tab(
                     selected = currentTab == 0,
                     onClick = { viewModel.setActiveTab(0) },
-                    text = { 
-                        Text(
-                            text = "My Profile", 
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = if (currentTab == 0) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (currentTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        ) 
-                    },
-                    icon = { 
+                    modifier = Modifier.testTag("player_list_tab")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Person, 
                             contentDescription = "My Profile tab",
                             tint = if (currentTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        ) 
-                    },
-                    modifier = Modifier.testTag("player_list_tab")
-                )
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "My Profile", 
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = if (currentTab == 0) FontWeight.ExtraBold else FontWeight.Medium,
+                                color = if (currentTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                fontSize = 11.2.sp
+                            )
+                        )
+                    }
+                }
                 Tab(
                     selected = currentTab == 1,
                     onClick = { viewModel.setActiveTab(1) },
-                    text = { 
-                        Text(
-                            text = "Match Innings", 
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = if (currentTab == 1) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (currentTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        ) 
-                    },
-                    icon = { 
+                    modifier = Modifier.testTag("match_log_tab")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.List, 
                             contentDescription = "Match logs tab",
                             tint = if (currentTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        ) 
-                    },
-                    modifier = Modifier.testTag("match_log_tab")
-                )
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Match Innings", 
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = if (currentTab == 1) FontWeight.ExtraBold else FontWeight.Medium,
+                                color = if (currentTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                fontSize = 11.2.sp
+                            )
+                        )
+                    }
+                }
                 Tab(
                     selected = currentTab == 2,
                     onClick = { viewModel.setActiveTab(2) },
-                    text = { 
+                    modifier = Modifier.testTag("visual_insights_tab")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShowChart, 
+                            contentDescription = "Charts tab",
+                            tint = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Visual Insights", 
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = if (currentTab == 2) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                color = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                fontSize = 11.2.sp
                             )
-                        ) 
-                    },
-                    icon = { 
-                        Icon(
-                            imageVector = Icons.Default.Star, 
-                            contentDescription = "Charts tab",
-                            tint = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        ) 
-                    },
-                    modifier = Modifier.testTag("visual_insights_tab")
-                )
+                        )
+                    }
+                }
             }
 
             // Tab Views Content Area
@@ -226,8 +246,8 @@ fun CricketDashboard(
             EditPlayerDialog(
                 player = player,
                 onDismiss = { showEditPlayerDialog = false },
-                onConfirm = { name, role, team, jersey, colorIndex ->
-                    viewModel.updatePlayer(player.id, name, role, team, jersey, colorIndex)
+                onConfirm = { name, role, team, jersey, colorIndex, profileImageUri ->
+                    viewModel.updatePlayer(player.id, name, role, team, jersey, colorIndex, profileImageUri)
                     showEditPlayerDialog = false
                 }
             )
@@ -295,7 +315,7 @@ fun CricketHeroSection(
                 )
             }
             .statusBarsPadding()
-            .padding(18.dp)
+            .padding(16.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -334,42 +354,57 @@ fun CricketHeroSection(
                         .background(playerColor)
                         .border(1.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
                         .clickable { menuExpanded = true }
-                        .padding(4.dp)
-                        .drawBehind {
-                            // Gloss shine highlight
-                            drawCircle(
-                                color = Color.White.copy(alpha = 0.18f),
-                                radius = size.minDimension / 2.4f,
-                                center = Offset(size.width * 0.35f, size.height * 0.35f)
-                            )
-                            // White stitched leather ball seam line to keep cricket theme
-                            val seamPath = Path().apply {
-                                moveTo(size.width / 2f, 0f)
-                                cubicTo(
-                                    size.width / 2f - 4.dp.toPx(), size.height * 0.3f,
-                                    size.width / 2f - 4.dp.toPx(), size.height * 0.7f,
-                                    size.width / 2f, size.height
-                                )
-                            }
-                            drawPath(
-                                path = seamPath,
-                                color = Color.White.copy(alpha = 0.85f),
-                                style = Stroke(
-                                    width = 1.5.dp.toPx(),
-                                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
-                                )
-                            )
-                        }
                         .testTag("header_profile_avatar"),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = player?.name?.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            color = Color.White
+                    if (player?.profileImageUri != null) {
+                        AsyncImage(
+                            model = player.profileImageUri,
+                            contentDescription = "Profile picture",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
-                    )
+                    } else {
+                        // Default styled cricket ball representation
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .drawBehind {
+                                    // Gloss shine highlight
+                                    drawCircle(
+                                        color = Color.White.copy(alpha = 0.18f),
+                                        radius = size.minDimension / 2.4f,
+                                        center = Offset(size.width * 0.35f, size.height * 0.35f)
+                                    )
+                                    // White stitched leather ball seam line to keep cricket theme
+                                    val seamPath = Path().apply {
+                                        moveTo(size.width / 2f, 0f)
+                                        cubicTo(
+                                            size.width / 2f - 4.dp.toPx(), size.height * 0.3f,
+                                            size.width / 2f - 4.dp.toPx(), size.height * 0.7f,
+                                            size.width / 2f, size.height
+                                        )
+                                    }
+                                    drawPath(
+                                        path = seamPath,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                        style = Stroke(
+                                            width = 1.5.dp.toPx(),
+                                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
+                                        )
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = player?.name?.firstOrNull()?.uppercase() ?: "?",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
                 }
 
                 DropdownMenu(
@@ -526,7 +561,7 @@ fun PlayersTabContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // --- 2. Highlights Stat Overviews Row ---
@@ -957,13 +992,22 @@ fun PlayerCard(
                                 .border(2.dp, Color.White, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = player.name.firstOrNull()?.uppercase() ?: "?",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
+                            if (player.profileImageUri != null) {
+                                AsyncImage(
+                                    model = player.profileImageUri,
+                                    contentDescription = "Player picture",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
-                            )
+                            } else {
+                                Text(
+                                    text = player.name.firstOrNull()?.uppercase() ?: "?",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    )
+                                )
+                            }
                         }
                         
                         // Jersey number in sub title badge with border outline
@@ -1148,7 +1192,7 @@ fun MatchLogTabContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
     ) {
         Text(
             text = if (selectedPlayer != null) "Innings for ${selectedPlayer.name}" else "Recent Match Innings (All Team)",
@@ -1965,7 +2009,7 @@ fun InsightsTabContent(
     val stats = remember(filteredPerformances) { viewModel.computeStats(filteredPerformances) }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
     ) {
@@ -2688,15 +2732,24 @@ fun WicketsBarChart(
 fun EditPlayerDialog(
     player: Player,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, role: String, team: String, jersey: String, colorIndex: Int) -> Unit
+    onConfirm: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?) -> Unit
 ) {
     var name by remember { mutableStateOf(player.name) }
     var team by remember { mutableStateOf(player.team) }
     var jersey by remember { mutableStateOf(player.jerseyNumber) }
     var selectedRole by remember { mutableStateOf(player.role) }
     var selectedColorIndex by remember { mutableIntStateOf(player.avatarColorIndex) }
+    var profileImageUri by remember { mutableStateOf(player.profileImageUri) }
     
     val rolesList = listOf("Batter", "Bowler", "All-Rounder", "Wicketkeeper")
+    
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            profileImageUri = it.toString()
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -2719,6 +2772,84 @@ fun EditPlayerDialog(
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                     color = MaterialTheme.colorScheme.primary
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Profile Picture Picker UI container
+                Box(
+                    modifier = Modifier.size(90.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(AvatarColors[selectedColorIndex % AvatarColors.size])
+                            .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (profileImageUri != null) {
+                            AsyncImage(
+                                model = profileImageUri,
+                                contentDescription = "New profile picture preview",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = name.firstOrNull()?.uppercase() ?: "?",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
+
+                    // A subtle floating edit edit badge icon overlay
+                    IconButton(
+                        onClick = { launcher.launch("image/*") },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(28.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            .border(1.dp, Color.White, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Upload/Change photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { launcher.launch("image/*") },
+                    ) {
+                        Text(
+                            text = if (profileImageUri == null) "Upload Photo" else "Change Photo",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                    if (profileImageUri != null) {
+                        TextButton(
+                            onClick = { profileImageUri = null },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text(
+                                text = "Remove",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Input fields
@@ -2827,7 +2958,7 @@ fun EditPlayerDialog(
                     Button(
                         onClick = {
                             if (name.isNotBlank()) {
-                                onConfirm(name, selectedRole, team.ifBlank { "Unassigned" }, jersey, selectedColorIndex)
+                                onConfirm(name, selectedRole, team.ifBlank { "Unassigned" }, jersey, selectedColorIndex, profileImageUri)
                             }
                         },
                         enabled = name.isNotBlank(),

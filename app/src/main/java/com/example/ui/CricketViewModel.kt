@@ -129,7 +129,7 @@ class CricketViewModel(
         }
     }
 
-    fun updatePlayer(id: Int, name: String, role: String, team: String, jersey: String, colorIndex: Int) {
+    fun updatePlayer(id: Int, name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?) {
         viewModelScope.launch {
             val updatedPlayer = Player(
                 id = id,
@@ -137,7 +137,8 @@ class CricketViewModel(
                 role = role,
                 team = team.trim(),
                 jerseyNumber = jersey.trim(),
-                avatarColorIndex = colorIndex
+                avatarColorIndex = colorIndex,
+                profileImageUri = profileImageUri
             )
             repository.insertPlayer(updatedPlayer)
             _selectedPlayer.value = updatedPlayer

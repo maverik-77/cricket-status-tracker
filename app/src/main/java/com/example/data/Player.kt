@@ -10,5 +10,6 @@ data class Player(
     val role: String, // e.g. "Batter", "Bowler", "All-Rounder", "Wicketkeeper"
     val team: String,
     val jerseyNumber: String = "",
-    val avatarColorIndex: Int = 0 // 0 to 5 for profile thumbnail backgrounds
+    val avatarColorIndex: Int = 0, // 0 to 5 for profile thumbnail backgrounds
+    val profileImageUri: String? = null
 )
