@@ -77,6 +77,11 @@ fun CricketDashboard(
     // Dialog trigger states
     var showEditPlayerDialog by remember { mutableStateOf(false) }
     var showAddPerformanceDialog by remember { mutableStateOf(false) }
+    var showManageAgeGroupsDialog by remember { mutableStateOf(false) }
+    var showSwitchProfilesDialog by remember { mutableStateOf(false) }
+
+    val ageGroupsSet by viewModel.ageGroupsFlow.collectAsStateWithLifecycle(initialValue = setOf("U15", "U17", "Adult"))
+    val ageGroups = remember(ageGroupsSet) { ageGroupsSet.toList() }
 
     Scaffold(
         modifier = modifier
@@ -93,7 +98,9 @@ fun CricketDashboard(
             CricketHeroSection(
                 player = selectedPlayer,
                 onEditProfile = { showEditPlayerDialog = true },
-                onLogInnings = { showAddPerformanceDialog = true }
+                onLogInnings = { showAddPerformanceDialog = true },
+                onManageAgeGroups = { showManageAgeGroupsDialog = true },
+                onSwitchProfiles = { showSwitchProfilesDialog = true }
             )
 
             // Tabs Layout
@@ -226,7 +233,8 @@ fun CricketDashboard(
                                     didBowl, overs, runsCon, wickets, maidens, ageGroup, date
                                 )
                             },
-                            players = players
+                            players = players,
+                            ageGroups = ageGroups
                         )
                         2 -> InsightsTabContent(
                             selectedPlayer = selectedPlayer,
@@ -258,6 +266,7 @@ fun CricketDashboard(
          AddPerformanceDialog(
              players = players,
              selectedPlayer = selectedPlayer,
+             ageGroups = ageGroups,
              onDismiss = { showAddPerformanceDialog = false },
              onConfirm = { playerId, opponent, format, ageGroup, didBat, runs, balls, isNotOut, fours, sixes, didBowl, overs, runsCon, wickets, maidens, date ->
                  viewModel.addMatchPerformance(
@@ -268,6 +277,28 @@ fun CricketDashboard(
              }
          )
      }
+
+    if (showManageAgeGroupsDialog) {
+        ManageAgeGroupsDialog(
+            onDismiss = { showManageAgeGroupsDialog = false },
+            ageGroups = ageGroupsSet,
+            onAdd = { viewModel.addAgeGroup(it) },
+            onRemove = { viewModel.removeAgeGroup(it) }
+        )
+    }
+
+    if (showSwitchProfilesDialog) {
+        ProfilesManagementDialog(
+            players = players,
+            selectedPlayer = selectedPlayer,
+            onDismiss = { showSwitchProfilesDialog = false },
+            onSelectPlayer = { viewModel.selectPlayer(it) },
+            onAddPlayer = { name, role, team, jersey, colorIndex, uri ->
+                viewModel.addPlayer(name, role, team, jersey, colorIndex, uri)
+            },
+            onDeletePlayer = { viewModel.deletePlayer(it) }
+        )
+    }
 }
 
 // --- Top Title / Hero header component ---
@@ -275,7 +306,9 @@ fun CricketDashboard(
 fun CricketHeroSection(
     player: Player?,
     onEditProfile: () -> Unit,
-    onLogInnings: () -> Unit
+    onLogInnings: () -> Unit,
+    onManageAgeGroups: () -> Unit,
+    onSwitchProfiles: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -446,6 +479,36 @@ fun CricketHeroSection(
                             modifier = Modifier.testTag("dropdown_edit_player")
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text("Switch Profiles", fontWeight = FontWeight.SemiBold) },
+                        onClick = {
+                            menuExpanded = false
+                            onSwitchProfiles()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Switch profile icon",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        modifier = Modifier.testTag("dropdown_switch_profiles")
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Manage Age Groups", fontWeight = FontWeight.SemiBold) },
+                        onClick = {
+                            menuExpanded = false
+                            onManageAgeGroups()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Manage age groups icon",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        modifier = Modifier.testTag("dropdown_manage_age_groups")
+                    )
                 }
             }
         }
@@ -1167,7 +1230,8 @@ fun MatchLogTabContent(
         maidens: Int,
         date: Long
     ) -> Unit,
-    players: List<Player>
+    players: List<Player>,
+    ageGroups: List<String>
 ) {
     // Determine which logs to show: if selective context is active, filter.
     val filteredLogs = remember(allPerformances, selectedPlayer) {
@@ -1178,7 +1242,6 @@ fun MatchLogTabContent(
         }
     }
 
-    val ageFilters = listOf("All", "U15", "U17", "Adult")
     var selectedAgeGroupFilter by remember { mutableStateOf("All") }
 
     val displayedLogs = remember(filteredLogs, selectedAgeGroupFilter) {
@@ -1202,35 +1265,53 @@ fun MatchLogTabContent(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Slim age-group filter tabs/chips
+        // Slim age-group filter dropdown
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            ageFilters.forEach { filter ->
-                val isSelected = selectedAgeGroupFilter == filter
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-                    ),
+            Text(
+                text = "Show Age Group:",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+            var filterExpanded by remember { mutableStateOf(false) }
+            Box {
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .clickable { selectedAgeGroupFilter = filter }
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                        .clickable { filterExpanded = true }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.padding(vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = filter,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 11.sp
+                    Text(
+                        text = selectedAgeGroupFilter,
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Dropdown Indicator",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = filterExpanded,
+                    onDismissRequest = { filterExpanded = false }
+                ) {
+                    (listOf("All") + ageGroups).forEach { ageOpt ->
+                        DropdownMenuItem(
+                            text = { Text(text = ageOpt, fontWeight = FontWeight.Bold) },
+                            onClick = {
+                                selectedAgeGroupFilter = ageOpt
+                                filterExpanded = false
+                            }
                         )
                     }
                 }
@@ -1283,7 +1364,8 @@ fun MatchLogTabContent(
                         colorIndex = playerIdToColor[performance.playerId] ?: 0,
                         onDelete = { onDeletePerformance(performance) },
                         onUpdate = onUpdatePerformance,
-                        players = players
+                        players = players,
+                        ageGroups = ageGroups
                     )
                 }
             }
@@ -1317,7 +1399,8 @@ fun InningLogCard(
         maidens: Int,
         date: Long
     ) -> Unit,
-    players: List<Player>
+    players: List<Player>,
+    ageGroups: List<String>
 ) {
     var showDetailDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -1924,6 +2007,7 @@ fun InningLogCard(
         EditPerformanceDialog(
             players = players,
             performance = performance,
+            ageGroups = ageGroups,
             onDismiss = { showEditDialog = false },
             onConfirm = { playerId, opponent, format, ageGroup, didBat, runs, balls, isNotOut, fours, sixes, didBowl, overs, runsCon, wickets, maidens, date ->
                 onUpdate(
@@ -1960,6 +2044,9 @@ fun InsightsTabContent(
     playerName: String,
     viewModel: CricketViewModel
 ) {
+    val ageGroupsSet by viewModel.ageGroupsFlow.collectAsStateWithLifecycle(initialValue = setOf("U15", "U17", "Adult"))
+    val ageGroups = remember(ageGroupsSet) { ageGroupsSet.toList() }
+
     var selectedAgeFilter by remember { mutableStateOf("All") }
     var selectedDateFilter by remember { mutableStateOf("All") }
 
@@ -2024,46 +2111,49 @@ fun InsightsTabContent(
                 Column(modifier = Modifier.padding(10.dp)) {
                     // Slim Age Group Filter Row
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Age Group:",
+                            text = "Age Group Filter:",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.width(75.dp)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            listOf("All", "U15", "U17", "Adult").forEach { ageOpt ->
-                                val isSelected = selectedAgeFilter == ageOpt
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(
-                                            if (isSelected) {
-                                                when (ageOpt) {
-                                                    "U15" -> Color(0xFF1E88E5)
-                                                    "U17" -> Color(0xFF8E24AA)
-                                                    "Adult" -> Color(0xFFE53935)
-                                                    else -> MaterialTheme.colorScheme.primary
-                                                }
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                            }
-                                        )
-                                        .clickable { selectedAgeFilter = ageOpt }
-                                        .padding(vertical = 5.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = ageOpt,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                        var filterExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                    .clickable { filterExpanded = true }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = selectedAgeFilter,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Dropdown Indicator",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = filterExpanded,
+                                onDismissRequest = { filterExpanded = false }
+                            ) {
+                                (listOf("All") + ageGroups).forEach { ageOpt ->
+                                    DropdownMenuItem(
+                                        text = { Text(text = ageOpt, fontWeight = FontWeight.Bold) },
+                                        onClick = {
+                                            selectedAgeFilter = ageOpt
+                                            filterExpanded = false
+                                        }
                                     )
                                 }
                             }
@@ -2977,6 +3067,7 @@ fun EditPlayerDialog(
 fun AddPerformanceDialog(
     players: List<Player>,
     selectedPlayer: Player?,
+    ageGroups: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (
         playerId: Int,
@@ -3009,7 +3100,9 @@ fun AddPerformanceDialog(
     
     var opponent by remember { mutableStateOf("") }
     var selectedFormat by remember { mutableStateOf("T20") }
-    var selectedAgeGroup by remember { mutableStateOf("Adult") }
+    var selectedAgeGroup by remember { 
+        mutableStateOf(if (ageGroups.contains("Adult")) "Adult" else ageGroups.firstOrNull() ?: "") 
+    }
     
     // Batting stats toggle & inputs
     var didBat by remember { mutableStateOf(true) }
@@ -3027,7 +3120,6 @@ fun AddPerformanceDialog(
     var maidensStr by remember { mutableStateOf("0") }
 
     val formats = listOf("T20", "ODI", "Test")
-    val ageGroups = listOf("U15", "U17", "Adult")
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -3115,34 +3207,43 @@ fun AddPerformanceDialog(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            ageGroups.forEach { group ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (selectedAgeGroup == group) {
-                                                when (group) {
-                                                    "U15" -> Color(0xFF1E88E5)
-                                                    "U17" -> Color(0xFF8E24AA)
-                                                    else -> Color(0xFFE53935)
-                                                }
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                            }
-                                        )
-                                        .clickable { selectedAgeGroup = group }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = group,
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                        color = if (selectedAgeGroup == group) Color.White else MaterialTheme.colorScheme.onSurface
+                        var dropdownExpanded by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { dropdownExpanded = true }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = selectedAgeGroup,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Dropdown indicators",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = dropdownExpanded,
+                                onDismissRequest = { dropdownExpanded = false },
+                                modifier = Modifier.fillMaxWidth(0.9f)
+                            ) {
+                                ageGroups.forEach { group ->
+                                    DropdownMenuItem(
+                                        text = { Text(text = group, fontWeight = FontWeight.SemiBold) },
+                                        onClick = {
+                                            selectedAgeGroup = group
+                                            dropdownExpanded = false
+                                        }
                                     )
                                 }
                             }
@@ -3696,6 +3797,7 @@ fun MatchDateSelectionDialog(
 fun EditPerformanceDialog(
     players: List<Player>,
     performance: MatchPerformance,
+    ageGroups: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (
         playerId: Int,
@@ -3745,7 +3847,6 @@ fun EditPerformanceDialog(
     var maidensStr by remember { mutableStateOf(performance.maidensBowled.toString()) }
 
     val formats = listOf("T20", "ODI", "Test")
-    val ageGroups = listOf("U15", "U17", "Adult")
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -3841,34 +3942,43 @@ fun EditPerformanceDialog(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            ageGroups.forEach { group ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (selectedAgeGroup == group) {
-                                                when (group) {
-                                                    "U15" -> Color(0xFF1E88E5)
-                                                    "U17" -> Color(0xFF8E24AA)
-                                                    else -> Color(0xFFE53935)
-                                                }
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                            }
-                                        )
-                                        .clickable { selectedAgeGroup = group }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = group,
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                        color = if (selectedAgeGroup == group) Color.White else MaterialTheme.colorScheme.onSurface
+                        var dropdownExpanded by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { dropdownExpanded = true }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = selectedAgeGroup,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Dropdown indicators",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = dropdownExpanded,
+                                onDismissRequest = { dropdownExpanded = false },
+                                modifier = Modifier.fillMaxWidth(0.9f)
+                            ) {
+                                ageGroups.forEach { group ->
+                                    DropdownMenuItem(
+                                        text = { Text(text = group, fontWeight = FontWeight.SemiBold) },
+                                        onClick = {
+                                            selectedAgeGroup = group
+                                            dropdownExpanded = false
+                                        }
                                     )
                                 }
                             }
@@ -4131,6 +4241,561 @@ fun EditPerformanceDialog(
                         modifier = Modifier.testTag("score_edit_confirm_button")
                     ) {
                         Text("Update Performance", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ManageAgeGroupsDialog(
+    onDismiss: () -> Unit,
+    ageGroups: Set<String>,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit
+) {
+    var newAgeGroup by remember { mutableStateOf("") }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag("manage_age_groups_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = "Manage Age Groups",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Add new age group Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newAgeGroup,
+                        onValueChange = { newAgeGroup = it.uppercase().trim() },
+                        label = { Text("New Group (e.g. U19)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f).testTag("new_age_group_input")
+                    )
+                    Button(
+                        onClick = {
+                            if (newAgeGroup.isNotBlank()) {
+                                onAdd(newAgeGroup)
+                                newAgeGroup = ""
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = newAgeGroup.isNotBlank()
+                    ) {
+                        Text("Add")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Existing Groups:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val list = ageGroups.toList()
+                    items(list) { group ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = group,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                IconButton(
+                                    onClick = { onRemove(group) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Group $group",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Close", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfilesManagementDialog(
+    players: List<Player>,
+    selectedPlayer: Player?,
+    onDismiss: () -> Unit,
+    onSelectPlayer: (Player) -> Unit,
+    onAddPlayer: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?) -> Unit,
+    onDeletePlayer: (Player) -> Unit
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    
+    // Adding state variables for new Player
+    var newName by remember { mutableStateOf("") }
+    var newTeam by remember { mutableStateOf("") }
+    var newJersey by remember { mutableStateOf("") }
+    var newRole by remember { mutableStateOf("Batter") }
+    var selectedColorIndex by remember { mutableStateOf(0) }
+    var profileImageUri by remember { mutableStateOf<String?>(null) }
+    
+    val rolesList = listOf("Batter", "Bowler", "All-Rounder", "Wicketkeeper")
+    
+    val launcher = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            profileImageUri = it.toString()
+        }
+    }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag("profiles_management_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = "Player Profiles",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f),
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    indicator = { tabPositions ->
+                        Box(
+                            Modifier
+                                .tabIndicatorOffset(tabPositions[selectedTab])
+                                .fillMaxHeight()
+                                .padding(horizontal = 4.dp, vertical = 6.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                        )
+                    },
+                    divider = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Switch Profiles", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Add New", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (selectedTab == 0) {
+                    // Switch profile overlay mode list
+                    Text(
+                        text = "Select a profile to switch context:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .heightIn(max = 280.dp)
+                    ) {
+                        items(players) { player ->
+                            val isCurrent = player.id == selectedPlayer?.id
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(
+                                    width = if (isCurrent) 1.5.dp else 1.dp,
+                                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                ),
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.04f) else MaterialTheme.colorScheme.surface,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelectPlayer(player)
+                                        onDismiss()
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(AvatarColors[player.avatarColorIndex % AvatarColors.size]),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (player.profileImageUri != null) {
+                                                androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+                                                    AsyncImage(
+                                                        model = player.profileImageUri,
+                                                        contentDescription = "Player image preview",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                            } else {
+                                                Text(
+                                                    text = player.name.firstOrNull()?.uppercase() ?: "?",
+                                                    style = MaterialTheme.typography.titleMedium.copy(
+                                                        fontWeight = FontWeight.Black,
+                                                        color = Color.White
+                                                    )
+                                                )
+                                            }
+                                        }
+                                        Column {
+                                            Text(
+                                                text = player.name,
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "${player.role} • ${player.team}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+                                    
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        if (isCurrent) {
+                                            Surface(
+                                                shape = RoundedCornerShape(20.dp),
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(horizontal = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "ACTIVE",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Black),
+                                                    color = Color.White,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                        if (players.size > 1) {
+                                            IconButton(
+                                                onClick = {
+                                                    onDeletePlayer(player)
+                                                },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete profile",
+                                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text("Dismiss", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    // Create Profile Mode Form
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .heightIn(max = 350.dp)
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Profile image picker
+                        Box(
+                            modifier = Modifier.size(80.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .clip(CircleShape)
+                                    .background(AvatarColors[selectedColorIndex % AvatarColors.size])
+                                    .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (profileImageUri != null) {
+                                    AsyncImage(
+                                        model = profileImageUri,
+                                        contentDescription = "Selected profile image",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Text(
+                                        text = newName.firstOrNull()?.uppercase() ?: "?",
+                                        style = MaterialTheme.typography.headlineMedium.copy(
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White
+                                        )
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { launcher.launch("image/*") },
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(24.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                    .border(1.dp, Color.White, CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Select Photo",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                        }
+                        
+                        TextButton(
+                            onClick = { launcher.launch("image/*") },
+                        ) {
+                            Text(
+                                text = if (profileImageUri == null) "Set Custom Profile Picture" else "Change Profile Picture",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        OutlinedTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            label = { Text("Player Name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("add_player_name")
+                        )
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        OutlinedTextField(
+                            value = newTeam,
+                            onValueChange = { newTeam = it },
+                            label = { Text("Team Name / Club") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("add_player_team")
+                        )
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = newJersey,
+                                onValueChange = { newJersey = it },
+                                label = { Text("Jersey #") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f).testTag("add_player_jersey")
+                            )
+                            
+                            Column(modifier = Modifier.weight(1.5f)) {
+                                Text(
+                                    text = "Playing Role:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                                var roleExpanded by remember { mutableStateOf(false) }
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedCard(
+                                        onClick = { roleExpanded = true },
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = newRole,
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDropDown,
+                                                contentDescription = "Select Role arrow"
+                                            )
+                                        }
+                                    }
+                                    DropdownMenu(
+                                        expanded = roleExpanded,
+                                        onDismissRequest = { roleExpanded = false }
+                                    ) {
+                                        rolesList.forEach { role ->
+                                            DropdownMenuItem(
+                                                text = { Text(role, fontWeight = FontWeight.Bold) },
+                                                onClick = {
+                                                    newRole = role
+                                                    roleExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // Theme color choice row
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Profile Color Accent Theme:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                AvatarColors.forEachIndexed { idx, color ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .border(
+                                                width = if (selectedColorIndex == idx) 2.5.dp else 1.dp,
+                                                color = if (selectedColorIndex == idx) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                shape = CircleShape
+                                            )
+                                            .clickable { selectedColorIndex = idx }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+                        ) {
+                            TextButton(onClick = { selectedTab = 0 }) {
+                                Text("Cancel", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    if (newName.isNotBlank()) {
+                                        onAddPlayer(
+                                            newName.trim(),
+                                            newRole,
+                                            if (newTeam.isBlank()) "Free Agent" else newTeam.trim(),
+                                            if (newJersey.isBlank()) "0" else newJersey.trim(),
+                                            selectedColorIndex,
+                                            profileImageUri
+                                        )
+                                        // Reset fields
+                                        newName = ""
+                                        newTeam = ""
+                                        newJersey = ""
+                                        newRole = "Batter"
+                                        selectedColorIndex = 0
+                                        profileImageUri = null
+                                        selectedTab = 0 // Switch back to see list
+                                    }
+                                },
+                                enabled = newName.isNotBlank()
+                            ) {
+                                Text("Create Profile", fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }

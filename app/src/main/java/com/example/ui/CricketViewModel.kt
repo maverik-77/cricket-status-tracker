@@ -14,6 +14,11 @@ class CricketViewModel(
     private val repository: CricketRepository
 ) : AndroidViewModel(application) {
 
+    private val prefs = application.getSharedPreferences("cricket_settings", android.content.Context.MODE_PRIVATE)
+
+    private val _ageGroupsFlow = MutableStateFlow<Set<String>>(emptySet())
+    val ageGroupsFlow: StateFlow<Set<String>> = _ageGroupsFlow.asStateFlow()
+
     // Active tab: 0 = Players, 1 = Performances / Match Logs, 2 = Insights & Charts
     private val _activeTab = MutableStateFlow(0)
     val activeTab: StateFlow<Int> = _activeTab.asStateFlow()
@@ -27,6 +32,15 @@ class CricketViewModel(
     val performancesFlow: Flow<List<MatchPerformance>> = repository.allPerformances
 
     init {
+        val saved = prefs.getStringSet("age_groups", null)
+        if (saved == null) {
+            val initial = setOf("U15", "U17", "Adult")
+            prefs.edit().putStringSet("age_groups", initial).apply()
+            _ageGroupsFlow.value = initial
+        } else {
+            _ageGroupsFlow.value = saved
+        }
+
         var hasAttemptedInit = false
         viewModelScope.launch {
             playersFlow.collect { list ->
@@ -114,22 +128,40 @@ class CricketViewModel(
         return repository.getPerformancesForPlayer(playerId)
     }
 
+    fun addAgeGroup(group: String) {
+        val current = _ageGroupsFlow.value.toMutableSet()
+        if (group.isNotBlank() && current.add(group.trim())) {
+            prefs.edit().putStringSet("age_groups", current).apply()
+            _ageGroupsFlow.value = current
+        }
+    }
+
+    fun removeAgeGroup(group: String) {
+        val current = _ageGroupsFlow.value.toMutableSet()
+        if (current.remove(group.trim())) {
+            prefs.edit().putStringSet("age_groups", current).apply()
+            _ageGroupsFlow.value = current
+        }
+    }
+
     // --- Action functions to update database ---
 
-    fun addPlayer(name: String, role: String, team: String, jersey: String, colorIndex: Int) {
+    fun addPlayer(name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String? = null, assignedAgeGroups: String = "U15,U17,Adult") {
         viewModelScope.launch {
             val newPlayer = Player(
                 name = name.trim(),
                 role = role,
                 team = team.trim(),
                 jerseyNumber = jersey.trim(),
-                avatarColorIndex = colorIndex
+                avatarColorIndex = colorIndex,
+                profileImageUri = profileImageUri,
+                assignedAgeGroups = assignedAgeGroups
             )
             repository.insertPlayer(newPlayer)
         }
     }
 
-    fun updatePlayer(id: Int, name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?) {
+    fun updatePlayer(id: Int, name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?, assignedAgeGroups: String) {
         viewModelScope.launch {
             val updatedPlayer = Player(
                 id = id,
@@ -138,7 +170,8 @@ class CricketViewModel(
                 team = team.trim(),
                 jerseyNumber = jersey.trim(),
                 avatarColorIndex = colorIndex,
-                profileImageUri = profileImageUri
+                profileImageUri = profileImageUri,
+                assignedAgeGroups = assignedAgeGroups
             )
             repository.insertPlayer(updatedPlayer)
             _selectedPlayer.value = updatedPlayer
