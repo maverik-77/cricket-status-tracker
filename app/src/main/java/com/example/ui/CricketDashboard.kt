@@ -1134,6 +1134,17 @@ fun MatchLogTabContent(
         }
     }
 
+    val ageFilters = listOf("All", "U15", "U17", "Adult")
+    var selectedAgeGroupFilter by remember { mutableStateOf("All") }
+
+    val displayedLogs = remember(filteredLogs, selectedAgeGroupFilter) {
+        if (selectedAgeGroupFilter == "All") {
+            filteredLogs
+        } else {
+            filteredLogs.filter { it.ageGroup.equals(selectedAgeGroupFilter, ignoreCase = true) }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1145,9 +1156,46 @@ fun MatchLogTabContent(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        if (filteredLogs.isEmpty()) {
+        // Slim age-group filter tabs/chips
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            ageFilters.forEach { filter ->
+                val isSelected = selectedAgeGroupFilter == filter
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { selectedAgeGroupFilter = filter }
+                ) {
+                    Box(
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = filter,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (displayedLogs.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1166,11 +1214,11 @@ fun MatchLogTabContent(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "No innings logged yet",
+                        text = if (selectedAgeGroupFilter != "All") "No $selectedAgeGroupFilter innings found" else "No innings logged yet",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Log cricket matches by pressing 'Log Inning' on the bottom right.",
+                        text = if (selectedAgeGroupFilter != "All") "Try changing your filter or add an inning with this category." else "Log cricket matches by pressing 'Log Inning' on the bottom right.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
@@ -1184,7 +1232,7 @@ fun MatchLogTabContent(
                     .weight(1f)
                     .testTag("innings_lazy_column")
             ) {
-                items(filteredLogs) { performance ->
+                items(displayedLogs) { performance ->
                     InningLogCard(
                         performance = performance,
                         playerName = playerIdToName[performance.playerId] ?: "Deleted Player",
@@ -1921,160 +1969,114 @@ fun InsightsTabContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        // Summary Title Banner
+        // Slim Consolidated Filters for Age Group & Date Range (Historical Title Box Removed)
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Career overview symbol",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Historical Focus: $playerName",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "Comprehensive performance analytics and career graphs",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Age filter chips row
-        item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "Filter career charts by Age Group:",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.padding(10.dp)) {
+                    // Slim Age Group Filter Row
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        listOf("All", "U15", "U17", "Adult").forEach { ageOpt ->
-                            val isSelected = selectedAgeFilter == ageOpt
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) {
-                                            when (ageOpt) {
-                                                "U15" -> Color(0xFF1E88E5)
-                                                "U17" -> Color(0xFF8E24AA)
-                                                "Adult" -> Color(0xFFE53935)
-                                                else -> MaterialTheme.colorScheme.primary
+                        Text(
+                            text = "Age Group:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.width(75.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            listOf("All", "U15", "U17", "Adult").forEach { ageOpt ->
+                                val isSelected = selectedAgeFilter == ageOpt
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (isSelected) {
+                                                when (ageOpt) {
+                                                    "U15" -> Color(0xFF1E88E5)
+                                                    "U17" -> Color(0xFF8E24AA)
+                                                    "Adult" -> Color(0xFFE53935)
+                                                    else -> MaterialTheme.colorScheme.primary
+                                                }
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                                             }
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                        }
+                                        )
+                                        .clickable { selectedAgeFilter = ageOpt }
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = ageOpt,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                                     )
-                                    .clickable { selectedAgeFilter = ageOpt }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = ageOpt,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                )
+                                }
                             }
                         }
                     }
-                }
-            }
-        }
 
-        // Date range filter chips row
-        item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "Filter analytics by Game Match Date range:",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Slim Game Date Range Filter Row
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        listOf(
-                            Triple("Match", "This Match", PitchBlueClassic),
-                            Triple("Week", "This Week", PitchBlueLighter),
-                            Triple("Month", "This Month", PitchBlueClassic),
-                            Triple("All", "All Matches", MaterialTheme.colorScheme.primary)
-                        ).forEach { (dateOpt, label, optColor) ->
-                            val isSelected = selectedDateFilter == dateOpt
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) optColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                        Text(
+                            text = "Date Focus:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.width(75.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            listOf(
+                                Triple("Match", "Match", PitchBlueClassic),
+                                Triple("Week", "Week", PitchBlueLighter),
+                                Triple("Month", "Month", PitchBlueClassic),
+                                Triple("All", "All", MaterialTheme.colorScheme.primary)
+                            ).forEach { (dateOpt, label, optColor) ->
+                                val isSelected = selectedDateFilter == dateOpt
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (isSelected) optColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        )
+                                        .clickable { selectedDateFilter = dateOpt }
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
                                     )
-                                    .clickable { selectedDateFilter = dateOpt }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1
-                                )
+                                }
                             }
                         }
                     }
 
                     if (selectedDateFilter == "Match") {
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Active Match (Tap selector to choose another date):",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         
                         val activePerfList = activeDayStr?.let { performancesByDay[it] } ?: emptyList()
                         val matchCountStr = if (activePerfList.size == 1) "1 innings logged" else "${activePerfList.size} innings logged"
@@ -2090,31 +2092,31 @@ fun InsightsTabContent(
                         
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(PitchBlueClassic.copy(alpha = 0.08f))
-                                .border(1.dp, PitchBlueClassic.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                .border(1.dp, PitchBlueClassic.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
                                 .clickable { showMatchSelectorDialog = true }
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DateRange,
                                 contentDescription = "Select Match Date",
                                 tint = PitchBlueClassic,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = formattedDate,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = PitchBlueClassic
                                 )
                                 if (matchOpponents.isNotEmpty()) {
                                     Text(
                                         text = "vs $matchOpponents ($matchCountStr)",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                     )
                                 }
@@ -2123,7 +2125,7 @@ fun InsightsTabContent(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "Dropdown Arrow",
                                 tint = PitchBlueClassic,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -3391,33 +3393,7 @@ fun AgeGroupComparisonReport(
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
 
-            // Bottom explanation insight callout box
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-                    .padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = "Insight icon",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Performances are grouped logically to contrast developmental trajectory averages across age-group divisions.",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                )
-            }
         }
     }
 }
