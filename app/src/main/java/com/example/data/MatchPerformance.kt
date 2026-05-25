@@ -40,6 +40,9 @@ data class MatchPerformance(
     val wicketsTaken: Int = 0,
     val maidensBowled: Int = 0
 ) {
+    val actuallyBatted: Boolean
+        get() = didBat && !(runsScored == 0 && ballsFaced == 0)
+
     // Utility functions to format overs or calculate stats helper
     fun getOversFormatted(): String {
         val completeOvers = ballsBowled / 6

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,11 +63,11 @@ fun CricketDashboard(
     modifier: Modifier = Modifier
 ) {
     // UI state streams from ViewModel
-    val currentTab by viewModel.activeTab.collectAsState()
-    val selectedPlayer by viewModel.selectedPlayer.collectAsState()
-    val players by viewModel.playersFlow.collectAsState(initial = emptyList())
-    val allPerformances by viewModel.performancesFlow.collectAsState(initial = emptyList())
-    val selectedPlayerPerformances by viewModel.selectedPlayerPerformances.collectAsState()
+    val currentTab by viewModel.activeTab.collectAsStateWithLifecycle()
+    val selectedPlayer by viewModel.selectedPlayer.collectAsStateWithLifecycle()
+    val players by viewModel.playersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allPerformances by viewModel.performancesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val selectedPlayerPerformances by viewModel.selectedPlayerPerformances.collectAsStateWithLifecycle()
 
     // Dialog trigger states
     var showEditPlayerDialog by remember { mutableStateOf(false) }
@@ -75,20 +76,7 @@ fun CricketDashboard(
     Scaffold(
         modifier = modifier
             .fillMaxSize()
-            .testTag("dashboard_scaffold"),
-        floatingActionButton = {
-            if (selectedPlayer != null) {
-                ExtendedFloatingActionButton(
-                    onClick = { showAddPerformanceDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.testTag("add_performance_fab"),
-                    elevation = FloatingActionButtonDefaults.elevation(8.dp),
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Add Match Stats") },
-                    text = { Text("Log Inning", fontWeight = FontWeight.Bold) }
-                )
-            }
-        }
+            .testTag("dashboard_scaffold")
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -99,7 +87,8 @@ fun CricketDashboard(
             // App Hero / Title
             CricketHeroSection(
                 player = selectedPlayer,
-                onEditProfile = { showEditPlayerDialog = true }
+                onEditProfile = { showEditPlayerDialog = true },
+                onLogInnings = { showAddPerformanceDialog = true }
             )
 
             // Tabs Layout
@@ -210,7 +199,14 @@ fun CricketDashboard(
                             selectedPlayer = selectedPlayer,
                             playerIdToName = players.associate { it.id to it.name },
                             playerIdToColor = players.associate { it.id to it.avatarColorIndex },
-                            onDeletePerformance = { viewModel.deletePerformance(it) }
+                            onDeletePerformance = { viewModel.deletePerformance(it) },
+                            onUpdatePerformance = { id, playerId, opponent, format, ageGroup, didBat, runs, balls, isNotOut, fours, sixes, didBowl, overs, runsCon, wickets, maidens, date ->
+                                viewModel.updateMatchPerformance(
+                                    id, playerId, opponent, format, didBat, runs, balls, isNotOut, fours, sixes,
+                                    didBowl, overs, runsCon, wickets, maidens, ageGroup, date
+                                )
+                            },
+                            players = players
                         )
                         2 -> InsightsTabContent(
                             selectedPlayer = selectedPlayer,
@@ -258,7 +254,8 @@ fun CricketDashboard(
 @Composable
 fun CricketHeroSection(
     player: Player?,
-    onEditProfile: () -> Unit
+    onEditProfile: () -> Unit,
+    onLogInnings: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -323,53 +320,98 @@ fun CricketHeroSection(
                 )
             }
 
-            // Clickable custom themed cricket ball profile avatar
+            // Clickable custom themed cricket ball profile avatar leading to the action dropdown menu
             val colorIdx = player?.let { ((it.avatarColorIndex % AvatarColors.size) + AvatarColors.size) % AvatarColors.size } ?: 0
             val playerColor = AvatarColors[colorIdx]
 
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(playerColor)
-                    .border(1.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
-                    .clickable { onEditProfile() }
-                    .padding(4.dp)
-                    .drawBehind {
-                        // Gloss shine highlight
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.18f),
-                            radius = size.minDimension / 2.4f,
-                            center = Offset(size.width * 0.35f, size.height * 0.35f)
-                        )
-                        // White stitched leather ball seam line to keep cricket theme
-                        val seamPath = Path().apply {
-                            moveTo(size.width / 2f, 0f)
-                            cubicTo(
-                                size.width / 2f - 4.dp.toPx(), size.height * 0.3f,
-                                size.width / 2f - 4.dp.toPx(), size.height * 0.7f,
-                                size.width / 2f, size.height
+            var menuExpanded by remember { mutableStateOf(false) }
+
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(playerColor)
+                        .border(1.5.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                        .clickable { menuExpanded = true }
+                        .padding(4.dp)
+                        .drawBehind {
+                            // Gloss shine highlight
+                            drawCircle(
+                                color = Color.White.copy(alpha = 0.18f),
+                                radius = size.minDimension / 2.4f,
+                                center = Offset(size.width * 0.35f, size.height * 0.35f)
+                            )
+                            // White stitched leather ball seam line to keep cricket theme
+                            val seamPath = Path().apply {
+                                moveTo(size.width / 2f, 0f)
+                                cubicTo(
+                                    size.width / 2f - 4.dp.toPx(), size.height * 0.3f,
+                                    size.width / 2f - 4.dp.toPx(), size.height * 0.7f,
+                                    size.width / 2f, size.height
+                                )
+                            }
+                            drawPath(
+                                path = seamPath,
+                                color = Color.White.copy(alpha = 0.85f),
+                                style = Stroke(
+                                    width = 1.5.dp.toPx(),
+                                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
+                                )
                             )
                         }
-                        drawPath(
-                            path = seamPath,
-                            color = Color.White.copy(alpha = 0.85f),
-                            style = Stroke(
-                                width = 1.5.dp.toPx(),
-                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
+                        .testTag("header_profile_avatar"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = player?.name?.firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .testTag("profile_dropdown_menu")
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Log Innings", fontWeight = FontWeight.SemiBold) },
+                        onClick = {
+                            menuExpanded = false
+                            onLogInnings()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Log Innings icon",
+                                tint = MaterialTheme.colorScheme.primary
                             )
+                        },
+                        modifier = Modifier.testTag("dropdown_log_innings")
+                    )
+                    if (player != null) {
+                        DropdownMenuItem(
+                            text = { Text("Edit Player Profile", fontWeight = FontWeight.SemiBold) },
+                            onClick = {
+                                menuExpanded = false
+                                onEditProfile()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Player icon",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            modifier = Modifier.testTag("dropdown_edit_player")
                         )
                     }
-                    .testTag("header_profile_avatar"),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = player?.name?.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Black,
-                        color = Color.White
-                    )
-                )
+                }
             }
         }
     }
@@ -472,8 +514,8 @@ fun PlayersTabContent(
     }
 
     val playerPerfFlow = remember(player.id) { viewModel.getPerformancesForPlayer(player.id) }
-    val playerPerf: List<MatchPerformance> by playerPerfFlow.collectAsState(initial = emptyList())
-    val careerStats = viewModel.computeStats(playerPerf)
+    val playerPerf: List<MatchPerformance> by playerPerfFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val careerStats = remember(playerPerf) { viewModel.computeStats(playerPerf) }
 
     // Form tracker - last 5 performances
     val recentInnings = remember(playerPerf) {
@@ -543,7 +585,7 @@ fun PlayersTabContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    if (inning.didBat) {
+                                    if (inning.actuallyBatted) {
                                         val runText = if (inning.isNotOut) "${inning.runsScored}*" else "${inning.runsScored}"
                                         Box(
                                             modifier = Modifier
@@ -1061,7 +1103,27 @@ fun MatchLogTabContent(
     selectedPlayer: Player?,
     playerIdToName: Map<Int, String>,
     playerIdToColor: Map<Int, Int>,
-    onDeletePerformance: (MatchPerformance) -> Unit
+    onDeletePerformance: (MatchPerformance) -> Unit,
+    onUpdatePerformance: (
+        id: Int,
+        playerId: Int,
+        opponent: String,
+        matchFormat: String,
+        ageGroup: String,
+        didBat: Boolean,
+        runsScored: Int,
+        ballsFaced: Int,
+        isNotOut: Boolean,
+        fours: Int,
+        sixes: Int,
+        didBowl: Boolean,
+        overs: Double,
+        runsConceded: Int,
+        wickets: Int,
+        maidens: Int,
+        date: Long
+    ) -> Unit,
+    players: List<Player>
 ) {
     // Determine which logs to show: if selective context is active, filter.
     val filteredLogs = remember(allPerformances, selectedPlayer) {
@@ -1127,7 +1189,9 @@ fun MatchLogTabContent(
                         performance = performance,
                         playerName = playerIdToName[performance.playerId] ?: "Deleted Player",
                         colorIndex = playerIdToColor[performance.playerId] ?: 0,
-                        onDelete = { onDeletePerformance(performance) }
+                        onDelete = { onDeletePerformance(performance) },
+                        onUpdate = onUpdatePerformance,
+                        players = players
                     )
                 }
             }
@@ -1141,9 +1205,31 @@ fun InningLogCard(
     performance: MatchPerformance,
     playerName: String,
     colorIndex: Int,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onUpdate: (
+        id: Int,
+        playerId: Int,
+        opponent: String,
+        matchFormat: String,
+        ageGroup: String,
+        didBat: Boolean,
+        runsScored: Int,
+        ballsFaced: Int,
+        isNotOut: Boolean,
+        fours: Int,
+        sixes: Int,
+        didBowl: Boolean,
+        overs: Double,
+        runsConceded: Int,
+        wickets: Int,
+        maidens: Int,
+        date: Long
+    ) -> Unit,
+    players: List<Player>
 ) {
     var showDetailDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     val formatter = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
     val dateString = remember(performance.date) { formatter.format(Date(performance.date)) }
 
@@ -1235,7 +1321,7 @@ fun InningLogCard(
                     .weight(0.9f)
                     .clip(RoundedCornerShape(8.dp))
                     .background(
-                        if (performance.didBat) TurfGreenClassic.copy(alpha = 0.05f) 
+                        if (performance.actuallyBatted) TurfGreenClassic.copy(alpha = 0.05f) 
                         else Color.Transparent
                     )
                     .padding(horizontal = 6.dp, vertical = 4.dp),
@@ -1249,7 +1335,7 @@ fun InningLogCard(
                         color = TurfGreenClassic.copy(alpha = 0.8f),
                         letterSpacing = 0.5.sp
                     )
-                    if (performance.didBat) {
+                    if (performance.actuallyBatted) {
                         Text(
                             text = androidx.compose.ui.text.buildAnnotatedString {
                                 val runText = if (performance.isNotOut) "${performance.runsScored}*" else "${performance.runsScored}"
@@ -1330,18 +1416,36 @@ fun InningLogCard(
         AlertDialog(
             onDismissRequest = { showDetailDialog = false },
             confirmButton = {
-                Button(
-                    onClick = { showDetailDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Close")
+                    TextButton(
+                        onClick = {
+                            showEditDialog = true
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit record icon",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Edit Innings")
+                    }
+                    Button(
+                        onClick = { showDetailDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Close")
+                    }
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
-                        showDetailDialog = false
-                        onDelete()
+                        showDeleteConfirmation = true
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -1463,7 +1567,7 @@ fun InningLogCard(
                                         color = TurfGreenClassic
                                     )
                                 }
-                                if (!performance.didBat) {
+                                if (!performance.actuallyBatted) {
                                     Text(
                                         text = "Did Not Bat",
                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -1472,7 +1576,7 @@ fun InningLogCard(
                                 }
                             }
 
-                            if (performance.didBat) {
+                            if (performance.actuallyBatted) {
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -1683,6 +1787,74 @@ fun InningLogCard(
                         }
                     }
                 }
+            }
+        )
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = {
+                Text(
+                    text = "Delete Innings Scorecard?",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this match innings log? This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        showDetailDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showEditDialog) {
+        EditPerformanceDialog(
+            players = players,
+            performance = performance,
+            onDismiss = { showEditDialog = false },
+            onConfirm = { playerId, opponent, format, ageGroup, didBat, runs, balls, isNotOut, fours, sixes, didBowl, overs, runsCon, wickets, maidens, date ->
+                onUpdate(
+                    performance.id,
+                    playerId,
+                    opponent,
+                    format,
+                    ageGroup,
+                    didBat,
+                    runs,
+                    balls,
+                    isNotOut,
+                    fours,
+                    sixes,
+                    didBowl,
+                    overs,
+                    runsCon,
+                    wickets,
+                    maidens,
+                    date
+                )
+                showEditDialog = false
+                showDetailDialog = false
             }
         )
     }
@@ -1959,20 +2131,6 @@ fun InsightsTabContent(
             }
         }
 
-        if (showMatchSelectorDialog) {
-            item {
-                MatchDateSelectionDialog(
-                    availableDays = availableDays,
-                    performancesByDay = performancesByDay,
-                    currentSelectedDayStr = activeDayStr,
-                    onDismiss = { showMatchSelectorDialog = false },
-                    onSelectDay = { dayStr -> 
-                        selectedSpecificDayStr = dayStr
-                    }
-                )
-            }
-        }
-
         if (performances.isEmpty()) {
             item {
                 Card(
@@ -2077,7 +2235,7 @@ fun InsightsTabContent(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         val battingScores = filteredPerformances
-                            .filter { it.didBat }
+                            .filter { it.actuallyBatted }
                             .map { it.runsScored }
                             .reversed() // order chronological
 
@@ -2171,6 +2329,18 @@ fun InsightsTabContent(
                 }
             }
         }
+    }
+
+    if (showMatchSelectorDialog) {
+        MatchDateSelectionDialog(
+            availableDays = availableDays,
+            performancesByDay = performancesByDay,
+            currentSelectedDayStr = activeDayStr,
+            onDismiss = { showMatchSelectorDialog = false },
+            onSelectDay = { dayStr -> 
+                selectedSpecificDayStr = dayStr
+            }
+        )
     }
 }
 
@@ -3386,6 +3556,453 @@ fun MatchDateSelectionDialog(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun EditPerformanceDialog(
+    players: List<Player>,
+    performance: MatchPerformance,
+    onDismiss: () -> Unit,
+    onConfirm: (
+        playerId: Int,
+        opponent: String,
+        matchFormat: String,
+        ageGroup: String,
+        didBat: Boolean,
+        runsScored: Int,
+        ballsFaced: Int,
+        isNotOut: Boolean,
+        fours: Int,
+        sixes: Int,
+        didBowl: Boolean,
+        overs: Double,
+        runsConceded: Int,
+        wickets: Int,
+        maidens: Int,
+        date: Long
+    ) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedDate by remember { mutableLongStateOf(performance.date) }
+    val sdf = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
+
+    var chosenPlayerIndex by remember {
+        val idx = players.indexOfFirst { it.id == performance.playerId }
+        mutableIntStateOf(if (idx != -1) idx else 0)
+    }
+
+    var opponent by remember { mutableStateOf(performance.opponent) }
+    var selectedFormat by remember { mutableStateOf(performance.matchFormat) }
+    var selectedAgeGroup by remember { mutableStateOf(performance.ageGroup) }
+
+    // Batting stats toggle & inputs
+    var didBat by remember { mutableStateOf(performance.didBat) }
+    var runsStr by remember { mutableStateOf(performance.runsScored.toString()) }
+    var ballsStr by remember { mutableStateOf(performance.ballsFaced.toString()) }
+    var isNotOut by remember { mutableStateOf(performance.isNotOut) }
+    var foursStr by remember { mutableStateOf(performance.fours.toString()) }
+    var sixesStr by remember { mutableStateOf(performance.sixes.toString()) }
+
+    // Bowling stats toggle & inputs
+    var didBowl by remember { mutableStateOf(performance.didBowl) }
+    var oversStr by remember { mutableStateOf(performance.getOversFormatted()) }
+    var runsConcededStr by remember { mutableStateOf(performance.runsConceded.toString()) }
+    var wicketsStr by remember { mutableStateOf(performance.wicketsTaken.toString()) }
+    var maidensStr by remember { mutableStateOf(performance.maidensBowled.toString()) }
+
+    val formats = listOf("T20", "ODI", "Test")
+    val ageGroups = listOf("U15", "U17", "Adult")
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+                .testTag("edit_performance_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Edit Innings Card",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Player select if multiple players, but since it's associated with a player, we show a read-only or selectable drop-down. Let's make it a read-only Player header
+                val currentPlayerName = players.getOrNull(chosenPlayerIndex)?.name ?: "Unknown Player"
+                Text(
+                    text = "Player: $currentPlayerName",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.align(Alignment.Start)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Opponent Text input
+                OutlinedTextField(
+                    value = opponent,
+                    onValueChange = { opponent = it },
+                    label = { Text("Opponent Team") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("opponent_field")
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Format selection dropdown custom row
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Format:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            formats.forEach { form ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (selectedFormat == form) MaterialTheme.colorScheme.primary 
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        )
+                                        .clickable { selectedFormat = form }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = form,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = if (selectedFormat == form) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Age Group Selection
+                    Column(modifier = Modifier.weight(1.2f)) {
+                        Text(
+                            text = "Age Group:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            ageGroups.forEach { group ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (selectedAgeGroup == group) {
+                                                when (group) {
+                                                    "U15" -> Color(0xFF1E88E5)
+                                                    "U17" -> Color(0xFF8E24AA)
+                                                    else -> Color(0xFFE53935)
+                                                }
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                            }
+                                        )
+                                        .clickable { selectedAgeGroup = group }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = group,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = if (selectedAgeGroup == group) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // --- DATE SELECTOR ---
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                        .clickable {
+                            val calendar = Calendar.getInstance().apply { timeInMillis = selectedDate }
+                            android.app.DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    val newCal = Calendar.getInstance().apply {
+                                        set(Calendar.YEAR, year)
+                                        set(Calendar.MONTH, month)
+                                        set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                    }
+                                    selectedDate = newCal.timeInMillis
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Match Date",
+                        tint = PitchBlueClassic,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Match Date (Tap to Change)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = sdf.format(Date(selectedDate)),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // --- BATTING SECTION ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (didBat) TurfGreenSoft.copy(alpha = 0.12f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, contentDescription = null, tint = TurfGreenClassic, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "Batter Outing", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Switch(
+                                checked = didBat,
+                                onCheckedChange = { didBat = it }
+                            )
+                        }
+
+                        if (didBat) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = runsStr,
+                                    onValueChange = { runsStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Runs") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f).testTag("runs_field")
+                                )
+                                OutlinedTextField(
+                                    value = ballsStr,
+                                    onValueChange = { ballsStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Balls") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = foursStr,
+                                    onValueChange = { foursStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("4s") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = sixesStr,
+                                    onValueChange = { sixesStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("6s") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Checkbox(
+                                    checked = isNotOut,
+                                    onCheckedChange = { isNotOut = it }
+                                )
+                                Text(text = "Remained Not Out", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // --- BOWLING SECTION ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (didBowl) BallRedClassic.copy(alpha = 0.08f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = BallRedClassic, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "Bowler Outing", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            Switch(
+                                checked = didBowl,
+                                onCheckedChange = { didBowl = it }
+                            )
+                        }
+
+                        if (didBowl) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = oversStr,
+                                    onValueChange = { oversStr = it.filter { char -> char.isDigit() || char == '.' } },
+                                    label = { Text("Overs (e.g. 4 or 3.1)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1.3f)
+                                )
+                                OutlinedTextField(
+                                    value = runsConcededStr,
+                                    onValueChange = { runsConcededStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Runs Con") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = wicketsStr,
+                                    onValueChange = { wicketsStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Wick Con") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f).testTag("wickets_field")
+                                )
+                                OutlinedTextField(
+                                    value = maidensStr,
+                                    onValueChange = { maidensStr = it.filter { char -> char.isDigit() } },
+                                    label = { Text("Maidens") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Actions buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val selectedPlayerId = players.getOrNull(chosenPlayerIndex)?.id ?: performance.playerId
+                            if (opponent.isNotBlank() && (didBat || didBowl) && selectedPlayerId > 0) {
+                                val runs = runsStr.toIntOrNull() ?: 0
+                                val balls = ballsStr.toIntOrNull() ?: 0
+                                val fours = foursStr.toIntOrNull() ?: 0
+                                val sixes = sixesStr.toIntOrNull() ?: 0
+
+                                val overs = oversStr.toDoubleOrNull() ?: 0.0
+                                val runsCon = runsConcededStr.toIntOrNull() ?: 0
+                                val wickets = wicketsStr.toIntOrNull() ?: 0
+                                val maidens = maidensStr.toIntOrNull() ?: 0
+
+                                onConfirm(
+                                    selectedPlayerId,
+                                    opponent,
+                                    selectedFormat,
+                                    selectedAgeGroup,
+                                    didBat,
+                                    runs,
+                                    balls,
+                                    isNotOut,
+                                    fours,
+                                    sixes,
+                                    didBowl,
+                                    overs,
+                                    runsCon,
+                                    wickets,
+                                    maidens,
+                                    selectedDate
+                                )
+                            }
+                        },
+                        enabled = opponent.isNotBlank() && (didBat || didBowl),
+                        modifier = Modifier.testTag("score_edit_confirm_button")
+                    ) {
+                        Text("Update Performance", fontWeight = FontWeight.Bold)
                     }
                 }
             }

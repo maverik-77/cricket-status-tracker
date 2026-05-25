@@ -201,8 +201,58 @@ class CricketViewModel(
         }
     }
 
+    fun updateMatchPerformance(
+        id: Int,
+        playerId: Int,
+        opponent: String,
+        matchFormat: String,
+        didBat: Boolean,
+        runsScored: Int,
+        ballsFaced: Int,
+        isNotOut: Boolean,
+        fours: Int,
+        sixes: Int,
+        didBowl: Boolean,
+        overs: Double,
+        runsConceded: Int,
+        wickets: Int,
+        maidens: Int,
+        ageGroup: String,
+        date: Long
+    ) {
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(200)
+            val fullOvers = overs.toInt()
+            val fractionalBalls = ((overs - fullOvers) * 10).toInt()
+            val totalBallsBowled = (fullOvers * 6) + (if (fractionalBalls in 0..5) fractionalBalls else 0)
+
+            val performance = MatchPerformance(
+                id = id,
+                playerId = playerId,
+                opponent = opponent.trim(),
+                matchFormat = matchFormat,
+                ageGroup = ageGroup,
+                didBat = didBat,
+                runsScored = if (didBat) runsScored else 0,
+                ballsFaced = if (didBat) ballsFaced else 0,
+                isNotOut = if (didBat) isNotOut else false,
+                fours = if (didBat) fours else 0,
+                sixes = if (didBat) sixes else 0,
+                didBowl = didBowl,
+                ballsBowled = if (didBowl) totalBallsBowled else 0,
+                runsConceded = if (didBowl) runsConceded else 0,
+                wicketsTaken = if (didBowl) wickets else 0,
+                maidensBowled = if (didBowl) maidens else 0,
+                date = date
+            )
+
+            repository.insertPerformance(performance)
+        }
+    }
+
     fun deletePerformance(performance: MatchPerformance) {
         viewModelScope.launch {
+            kotlinx.coroutines.delay(200)
             repository.deletePerformance(performance)
         }
     }
@@ -294,7 +344,7 @@ class CricketViewModel(
         var totalMaidens = 0
 
         for (p in perfList) {
-            if (p.didBat) {
+            if (p.actuallyBatted) {
                 battingInnings++
                 totalRuns += p.runsScored
                 totalBallsFaced += p.ballsFaced
