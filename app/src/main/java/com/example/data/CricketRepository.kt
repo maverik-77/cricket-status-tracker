@@ -3,6 +3,8 @@ package com.example.data
 import kotlinx.coroutines.flow.Flow
 
 class CricketRepository(private val cricketDao: CricketDao) {
+    fun getDao(): CricketDao = cricketDao
+
     val allPlayers: Flow<List<Player>> = cricketDao.getAllPlayers()
     val allPerformances: Flow<List<MatchPerformance>> = cricketDao.getAllPerformances()
 

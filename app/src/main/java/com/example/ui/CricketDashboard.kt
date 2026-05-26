@@ -79,6 +79,7 @@ fun CricketDashboard(
     var showAddPerformanceDialog by remember { mutableStateOf(false) }
     var showManageAgeGroupsDialog by remember { mutableStateOf(false) }
     var showSwitchProfilesDialog by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
 
     val ageGroupsSet by viewModel.ageGroupsFlow.collectAsStateWithLifecycle(initialValue = setOf("U15", "U17", "Adult"))
     val ageGroups = remember(ageGroupsSet) { ageGroupsSet.toList() }
@@ -100,7 +101,8 @@ fun CricketDashboard(
                 onEditProfile = { showEditPlayerDialog = true },
                 onLogInnings = { showAddPerformanceDialog = true },
                 onManageAgeGroups = { showManageAgeGroupsDialog = true },
-                onSwitchProfiles = { showSwitchProfilesDialog = true }
+                onSwitchProfiles = { showSwitchProfilesDialog = true },
+                onOpenBackupRestore = { showBackupDialog = true }
             )
 
             // Tabs Layout
@@ -274,6 +276,13 @@ fun CricketDashboard(
             onDeletePlayer = { viewModel.deletePlayer(it) }
         )
     }
+
+    if (showBackupDialog) {
+        BackupRestoreDialog(
+            onDismiss = { showBackupDialog = false },
+            viewModel = viewModel
+        )
+    }
 }
 
 // --- Top Title / Hero header component ---
@@ -283,7 +292,8 @@ fun CricketHeroSection(
     onEditProfile: () -> Unit,
     onLogInnings: () -> Unit,
     onManageAgeGroups: () -> Unit,
-    onSwitchProfiles: () -> Unit
+    onSwitchProfiles: () -> Unit,
+    onOpenBackupRestore: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -483,6 +493,21 @@ fun CricketHeroSection(
                             )
                         },
                         modifier = Modifier.testTag("dropdown_manage_age_groups")
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Import/Export Data", fontWeight = FontWeight.SemiBold) },
+                        onClick = {
+                            menuExpanded = false
+                            onOpenBackupRestore()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Import/Export Data icon",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        modifier = Modifier.testTag("dropdown_backup_restore")
                     )
                 }
             }
@@ -934,7 +959,7 @@ fun PlayersTabContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(60.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -5135,5 +5160,186 @@ fun ProfilesManagementDialog(
             }
         }
     }
+}
+
+@Composable
+fun BackupRestoreDialog(
+    onDismiss: () -> Unit,
+    viewModel: CricketViewModel
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Database icon",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = "Backup & Restore",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Manage your cricket statistics database safely. Backups are saved in standard JSON formats to your local Downloads folder to survive app upgrades & reinstalls.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Native Android Auto-Backup supported.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Auto-Backups save to Downloads/cricket_stats_backup.json.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.manualExportBackup { path ->
+                            if (path != null) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Backup exported successfully to:\n$path",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Export failed. Check storage permissions.",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("dialog_export_backup_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Export Backup icon",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Export Backup to Downloads",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.manualImportBackup { success ->
+                            if (success) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Database Restored & Synced Successfully!",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                onDismiss()
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Import failed. No backup file found in Downloads.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("dialog_import_backup_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+                        contentColor = MaterialTheme.colorScheme.secondary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Import Backup icon",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Import Backup from Downloads",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", fontWeight = FontWeight.Bold)
+            }
+        },
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = true
+        )
+    )
 }
 

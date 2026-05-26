@@ -43,6 +43,19 @@ class CricketViewModel(
 
         var hasAttemptedInit = false
         viewModelScope.launch {
+            try {
+                // Check if database is completely empty on startup and restore backup if present
+                val initialList = playersFlow.first()
+                if (initialList.isEmpty()) {
+                    val restored = BackupHelper.attemptAutoRestoreAtStartup(application, repository.getDao())
+                    if (restored) {
+                        android.util.Log.i("CricketViewModel", "Startup check: Restored players from local JSON backup!")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CricketViewModel", "Error checking for startup backup", e)
+            }
+
             playersFlow.collect { list ->
                 if (list.isEmpty() && !hasAttemptedInit) {
                     hasAttemptedInit = true
@@ -63,7 +76,41 @@ class CricketViewModel(
                         val updated = list.find { it.id == previouslySelected.id } ?: list.first()
                         _selectedPlayer.value = updated
                     }
+
+                    // Schedule automatic silent backup of the entire dataset
+                    try {
+                        val allPerf = performancesFlow.first()
+                        BackupHelper.performSilentBackup(application, list, allPerf)
+                    } catch (e: Exception) {
+                        android.util.Log.e("CricketViewModel", "Failed silent backup routine", e)
+                    }
                 }
+            }
+        }
+    }
+
+    fun manualExportBackup(onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val players = playersFlow.first()
+                val performances = performancesFlow.first()
+                val path = BackupHelper.manualExport(getApplication(), players, performances)
+                onResult(path)
+            } catch (e: Exception) {
+                android.util.Log.e("CricketViewModel", "Manual backup export failed", e)
+                onResult(null)
+            }
+        }
+    }
+
+    fun manualImportBackup(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val success = BackupHelper.manualImport(getApplication(), repository.getDao())
+                onResult(success)
+            } catch (e: Exception) {
+                android.util.Log.e("CricketViewModel", "Manual backup import failed", e)
+                onResult(false)
             }
         }
     }
