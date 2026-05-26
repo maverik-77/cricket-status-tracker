@@ -104,101 +104,73 @@ fun CricketDashboard(
             )
 
             // Tabs Layout
-            TabRow(
-                selectedTabIndex = currentTab,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.primary,
-                indicator = { tabPositions ->
-                    Box(
-                        Modifier
-                            .tabIndicatorOffset(tabPositions[currentTab])
-                            .fillMaxHeight()
-                            .padding(horizontal = 6.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    )
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 12.dp, start = 12.dp, end = 12.dp)
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
+                    .padding(6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Tab(
-                    selected = currentTab == 0,
-                    onClick = { viewModel.setActiveTab(0) },
-                    modifier = Modifier.testTag("player_list_tab")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person, 
-                            contentDescription = "My Profile tab",
-                            tint = if (currentTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "My Profile", 
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = if (currentTab == 0) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (currentTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                fontSize = 11.2.sp
-                            )
-                        )
+                val tabsList = listOf(
+                    Triple("My Profile", Icons.Default.Person, "player_list_tab"),
+                    Triple("Match Innings", Icons.Default.List, "match_log_tab"),
+                    Triple("Visual Insights", Icons.Default.ShowChart, "visual_insights_tab")
+                )
+                
+                tabsList.forEachIndexed { index, (label, icon, testTag) ->
+                    val isSelected = currentTab == index
+                    val tabWeight = when (label) {
+                        "My Profile" -> 0.85f
+                        "Match Innings" -> 1.25f
+                        "Visual Insights" -> 1.35f
+                        else -> 1f
                     }
-                }
-                Tab(
-                    selected = currentTab == 1,
-                    onClick = { viewModel.setActiveTab(1) },
-                    modifier = Modifier.testTag("match_log_tab")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.List, 
-                            contentDescription = "Match logs tab",
-                            tint = if (currentTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Match Innings", 
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = if (currentTab == 1) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (currentTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                fontSize = 11.2.sp
+                    Box(
+                        modifier = Modifier
+                            .weight(tabWeight)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                else Color.Transparent
                             )
-                        )
-                    }
-                }
-                Tab(
-                    selected = currentTab == 2,
-                    onClick = { viewModel.setActiveTab(2) },
-                    modifier = Modifier.testTag("visual_insights_tab")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxHeight().padding(horizontal = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShowChart, 
-                            contentDescription = "Charts tab",
-                            tint = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Visual Insights", 
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = if (currentTab == 2) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                fontSize = 11.2.sp
+                            .clickable { viewModel.setActiveTab(index) }
+                            .border(
+                                width = if (isSelected) 1.dp else 0.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else Color.Transparent,
+                                shape = RoundedCornerShape(20.dp)
                             )
-                        )
+                            .testTag(testTag),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(horizontal = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = "$label tab",
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = label,
+                                maxLines = 1,
+                                softWrap = false,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                    fontSize = 13.5.sp
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -234,7 +206,7 @@ fun CricketDashboard(
                                 )
                             },
                             players = players,
-                            ageGroups = ageGroups
+                            ageGroups = selectedPlayer?.getAssignedAgeGroupsList() ?: ageGroups
                         )
                         2 -> InsightsTabContent(
                             selectedPlayer = selectedPlayer,
@@ -253,9 +225,11 @@ fun CricketDashboard(
         selectedPlayer?.let { player ->
             EditPlayerDialog(
                 player = player,
+                globalAgeGroups = ageGroups,
+                playerPerformances = selectedPlayerPerformances,
                 onDismiss = { showEditPlayerDialog = false },
-                onConfirm = { name, role, team, jersey, colorIndex, profileImageUri ->
-                    viewModel.updatePlayer(player.id, name, role, team, jersey, colorIndex, profileImageUri)
+                onConfirm = { name, role, team, jersey, colorIndex, profileImageUri, assignedAgeGroups ->
+                    viewModel.updatePlayer(player.id, name, role, team, jersey, colorIndex, profileImageUri, assignedAgeGroups)
                     showEditPlayerDialog = false
                 }
             )
@@ -291,10 +265,11 @@ fun CricketDashboard(
         ProfilesManagementDialog(
             players = players,
             selectedPlayer = selectedPlayer,
+            globalAgeGroups = ageGroups,
             onDismiss = { showSwitchProfilesDialog = false },
             onSelectPlayer = { viewModel.selectPlayer(it) },
-            onAddPlayer = { name, role, team, jersey, colorIndex, uri ->
-                viewModel.addPlayer(name, role, team, jersey, colorIndex, uri)
+            onAddPlayer = { name, role, team, jersey, colorIndex, uri, assignedAgeGroups ->
+                viewModel.addPlayer(name, role, team, jersey, colorIndex, uri, assignedAgeGroups)
             },
             onDeletePlayer = { viewModel.deletePlayer(it) }
         )
@@ -613,11 +588,30 @@ fun PlayersTabContent(
 
     val playerPerfFlow = remember(player.id) { viewModel.getPerformancesForPlayer(player.id) }
     val playerPerf: List<MatchPerformance> by playerPerfFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-    val careerStats = remember(playerPerf) { viewModel.computeStats(playerPerf) }
+
+    val currentYearStr = remember { Calendar.getInstance().get(Calendar.YEAR).toString() }
+    val sdfYear = remember { SimpleDateFormat("yyyy", Locale.getDefault()) }
+    val playYears = remember(playerPerf) {
+        playerPerf.map { sdfYear.format(Date(it.date)) }.toSet()
+    }
+    val yearOptions = remember(playYears, currentYearStr) {
+        (listOf(currentYearStr) + playYears).distinct().sortedDescending() + "All"
+    }
+    var selectedYear by remember(player.id) { mutableStateOf(currentYearStr) }
+
+    val filteredPlayerPerf = remember(playerPerf, selectedYear) {
+        if (selectedYear == "All") {
+            playerPerf
+        } else {
+            playerPerf.filter { sdfYear.format(Date(it.date)) == selectedYear }
+        }
+    }
+
+    val careerStats = remember(filteredPlayerPerf) { viewModel.computeStats(filteredPlayerPerf) }
 
     // Form tracker - last 5 performances
-    val recentInnings = remember(playerPerf) {
-        playerPerf.sortedByDescending { it.date }.take(5)
+    val recentInnings = remember(filteredPlayerPerf) {
+        filteredPlayerPerf.sortedByDescending { it.date }.take(5)
     }
 
     Column(
@@ -627,6 +621,74 @@ fun PlayersTabContent(
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // --- 1. Year Dropdown Filter ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Profile Year Focus:",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            var dropdownExpanded by remember { mutableStateOf(false) }
+            Box {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                        .clickable { dropdownExpanded = true }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (selectedYear == "All") "All Years" else selectedYear,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Dropdown Indicator",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false }
+                ) {
+                    yearOptions.forEach { yearOpt ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    text = if (yearOpt == "All") "All Years" else yearOpt, 
+                                    fontWeight = FontWeight.Bold 
+                                ) 
+                            },
+                            onClick = {
+                                selectedYear = yearOpt
+                                dropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         // --- 2. Highlights Stat Overviews Row ---
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1244,11 +1306,23 @@ fun MatchLogTabContent(
 
     var selectedAgeGroupFilter by remember { mutableStateOf("All") }
 
-    val displayedLogs = remember(filteredLogs, selectedAgeGroupFilter) {
-        if (selectedAgeGroupFilter == "All") {
-            filteredLogs
+    LaunchedEffect(ageGroups) {
+        if (selectedAgeGroupFilter != "All" && !ageGroups.contains(selectedAgeGroupFilter)) {
+            selectedAgeGroupFilter = "All"
+        }
+    }
+
+    val displayedLogs = remember(filteredLogs, selectedAgeGroupFilter, ageGroups) {
+        val assignedSet = ageGroups.toSet()
+        val baseFiltered = if (selectedPlayer != null) {
+            filteredLogs.filter { assignedSet.contains(it.ageGroup) }
         } else {
-            filteredLogs.filter { it.ageGroup.equals(selectedAgeGroupFilter, ignoreCase = true) }
+            filteredLogs
+        }
+        if (selectedAgeGroupFilter == "All") {
+            baseFiltered
+        } else {
+            baseFiltered.filter { it.ageGroup.equals(selectedAgeGroupFilter, ignoreCase = true) }
         }
     }
 
@@ -2045,10 +2119,34 @@ fun InsightsTabContent(
     viewModel: CricketViewModel
 ) {
     val ageGroupsSet by viewModel.ageGroupsFlow.collectAsStateWithLifecycle(initialValue = setOf("U15", "U17", "Adult"))
-    val ageGroups = remember(ageGroupsSet) { ageGroupsSet.toList() }
+    val ageGroups = remember(ageGroupsSet, selectedPlayer) {
+        selectedPlayer?.getAssignedAgeGroupsList() ?: ageGroupsSet.toList()
+    }
+    val ageGroupOptions = remember(ageGroups) {
+        val preferredOrder = listOf("U15", "U17", "Adult")
+        val mainItems = preferredOrder.filter { ageGroups.contains(it) }
+        val restItems = ageGroups.filterNot { preferredOrder.contains(it) }.sorted()
+        listOf("All") + mainItems + restItems
+    }
 
     var selectedAgeFilter by remember { mutableStateOf("All") }
-    var selectedDateFilter by remember { mutableStateOf("All") }
+    
+    val currentYearStr = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR).toString() }
+    val sdfYear = remember { SimpleDateFormat("yyyy", Locale.getDefault()) }
+    val playYears = remember(performances) {
+        performances.map { sdfYear.format(Date(it.date)) }.toSet()
+    }
+    val yearOptions = remember(playYears, currentYearStr) {
+        (listOf(currentYearStr) + playYears).distinct().sortedDescending() + "All"
+    }
+    var selectedYearFilter by remember { mutableStateOf(currentYearStr) }
+    var selectedDateFilter by remember { mutableStateOf("YearFilter") }
+
+    LaunchedEffect(ageGroups) {
+        if (selectedAgeFilter != "All" && !ageGroups.contains(selectedAgeFilter)) {
+            selectedAgeFilter = "All"
+        }
+    }
 
     val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val displaySdf = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
@@ -2069,7 +2167,7 @@ fun InsightsTabContent(
 
     val activeDayStr = selectedSpecificDayStr ?: availableDays.firstOrNull()
 
-    val dateFilteredPerformances = remember(performances, selectedDateFilter, activeDayStr, performancesByDay) {
+    val dateFilteredPerformances = remember(performances, selectedDateFilter, activeDayStr, performancesByDay, selectedYearFilter) {
         when (selectedDateFilter) {
             "Match" -> {
                 if (activeDayStr != null) {
@@ -2086,12 +2184,25 @@ fun InsightsTabContent(
                 val oneMonthAgo = System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000L
                 performances.filter { it.date >= oneMonthAgo }
             }
+            "YearFilter" -> {
+                if (selectedYearFilter == "All") {
+                    performances
+                } else {
+                    performances.filter { sdfYear.format(Date(it.date)) == selectedYearFilter }
+                }
+            }
             else -> performances
         }
     }
 
-    val filteredPerformances = remember(dateFilteredPerformances, selectedAgeFilter) {
-        if (selectedAgeFilter == "All") dateFilteredPerformances else dateFilteredPerformances.filter { it.ageGroup == selectedAgeFilter }
+    val filteredPerformances = remember(dateFilteredPerformances, selectedAgeFilter, ageGroups) {
+        val assignedSet = ageGroups.toSet()
+        val baseFiltered = if (selectedPlayer != null) {
+            dateFilteredPerformances.filter { assignedSet.contains(it.ageGroup) }
+        } else {
+            dateFilteredPerformances
+        }
+        if (selectedAgeFilter == "All") baseFiltered else baseFiltered.filter { it.ageGroup == selectedAgeFilter }
     }
     val stats = remember(filteredPerformances) { viewModel.computeStats(filteredPerformances) }
 
@@ -2109,62 +2220,9 @@ fun InsightsTabContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
-                    // Slim Age Group Filter Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Age Group Filter:",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        var filterExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                    .clickable { filterExpanded = true }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = selectedAgeFilter,
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Dropdown Indicator",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = filterExpanded,
-                                onDismissRequest = { filterExpanded = false }
-                            ) {
-                                (listOf("All") + ageGroups).forEach { ageOpt ->
-                                    DropdownMenuItem(
-                                        text = { Text(text = ageOpt, fontWeight = FontWeight.Bold) },
-                                        onClick = {
-                                            selectedAgeFilter = ageOpt
-                                            filterExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
                     // Slim Game Date Range Filter Row
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -2180,8 +2238,7 @@ fun InsightsTabContent(
                             listOf(
                                 Triple("Match", "Match", PitchBlueClassic),
                                 Triple("Week", "Week", PitchBlueLighter),
-                                Triple("Month", "Month", PitchBlueClassic),
-                                Triple("All", "All", MaterialTheme.colorScheme.primary)
+                                Triple("Month", "Month", PitchBlueClassic)
                             ).forEach { (dateOpt, label, optColor) ->
                                 val isSelected = selectedDateFilter == dateOpt
                                 Box(
@@ -2202,6 +2259,70 @@ fun InsightsTabContent(
                                         color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1
                                     )
+                                }
+                            }
+                            
+                            // Year focus dropdown button
+                            val isYearSelected = selectedDateFilter == "YearFilter"
+                            var yearDropdownExpanded by remember { mutableStateOf(false) }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (isYearSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        )
+                                        .clickable { 
+                                            selectedDateFilter = "YearFilter"
+                                            yearDropdownExpanded = true
+                                        }
+                                        .padding(vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = if (selectedYearFilter == "All") "All" else selectedYearFilter,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isYearSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = "Select Year",
+                                            tint = if (isYearSelected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = yearDropdownExpanded,
+                                    onDismissRequest = { yearDropdownExpanded = false }
+                                ) {
+                                    yearOptions.forEach { yearOpt ->
+                                        DropdownMenuItem(
+                                            text = { 
+                                                Text(
+                                                    text = if (yearOpt == "All") "All Years" else yearOpt, 
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp
+                                                ) 
+                                            },
+                                            onClick = {
+                                                selectedYearFilter = yearOpt
+                                                selectedDateFilter = "YearFilter"
+                                                yearDropdownExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2261,6 +2382,51 @@ fun InsightsTabContent(
                                 tint = PitchBlueClassic,
                                 modifier = Modifier.size(18.dp)
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Slim Age Group Filter Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Age Group:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.width(75.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .horizontalScroll(rememberScrollState())
+                        ) {
+                            ageGroupOptions.forEach { ageOpt ->
+                                val isSelected = selectedAgeFilter == ageOpt
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        )
+                                        .clickable { selectedAgeFilter = ageOpt }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = ageOpt,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -2821,8 +2987,10 @@ fun WicketsBarChart(
 @Composable
 fun EditPlayerDialog(
     player: Player,
+    globalAgeGroups: List<String>,
+    playerPerformances: List<MatchPerformance>,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?) -> Unit
+    onConfirm: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?, assignedAgeGroups: String) -> Unit
 ) {
     var name by remember { mutableStateOf(player.name) }
     var team by remember { mutableStateOf(player.team) }
@@ -2830,9 +2998,16 @@ fun EditPlayerDialog(
     var selectedRole by remember { mutableStateOf(player.role) }
     var selectedColorIndex by remember { mutableIntStateOf(player.avatarColorIndex) }
     var profileImageUri by remember { mutableStateOf(player.profileImageUri) }
-    
+
+    val matchAgeGroups = remember(playerPerformances) {
+        playerPerformances.map { it.ageGroup }.toSet()
+    }
+    var selectedAgeGroupsState by remember {
+        mutableStateOf(player.getAssignedAgeGroupsList().toSet())
+    }
+
     val rolesList = listOf("Batter", "Bowler", "All-Rounder", "Wicketkeeper")
-    
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -2912,9 +3087,9 @@ fun EditPlayerDialog(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -2997,6 +3172,73 @@ fun EditPlayerDialog(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Assigned Age Groups Selection
+                Text(
+                    text = "Assigned Age Groups:",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    globalAgeGroups.forEach { group ->
+                        val hasMatch = matchAgeGroups.contains(group)
+                        val isSelected = selectedAgeGroupsState.contains(group)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (hasMatch) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.02f)
+                                    else Color.Transparent
+                                )
+                                .clickable(enabled = !hasMatch) {
+                                    if (isSelected) {
+                                        selectedAgeGroupsState = selectedAgeGroupsState - group
+                                    } else {
+                                        selectedAgeGroupsState = selectedAgeGroupsState + group
+                                    }
+                                }
+                                .padding(vertical = 4.dp, horizontal = 4.dp)
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    if (!hasMatch) {
+                                        if (checked) {
+                                            selectedAgeGroupsState = selectedAgeGroupsState + group
+                                        } else {
+                                            selectedAgeGroupsState = selectedAgeGroupsState - group
+                                        }
+                                    }
+                                },
+                                enabled = !hasMatch,
+                                modifier = Modifier.testTag("checkbox_age_group_$group")
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = group,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (hasMatch) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface
+                                )
+                                if (hasMatch) {
+                                    Text(
+                                        text = "Matches exist in this group (cannot remove)",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 // Profile color indices selection
                 Text(
                     text = "Profile Theme Color:",
@@ -3047,11 +3289,19 @@ fun EditPlayerDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            if (name.isNotBlank()) {
-                                onConfirm(name, selectedRole, team.ifBlank { "Unassigned" }, jersey, selectedColorIndex, profileImageUri)
+                            if (name.isNotBlank() && selectedAgeGroupsState.isNotEmpty()) {
+                                onConfirm(
+                                    name,
+                                    selectedRole,
+                                    team.ifBlank { "Unassigned" },
+                                    jersey,
+                                    selectedColorIndex,
+                                    profileImageUri,
+                                    selectedAgeGroupsState.joinToString(",")
+                                )
                             }
                         },
-                        enabled = name.isNotBlank(),
+                        enabled = name.isNotBlank() && selectedAgeGroupsState.isNotEmpty(),
                         modifier = Modifier.testTag("player_confirm_button")
                     ) {
                         Text("Save Changes", fontWeight = FontWeight.Bold)
@@ -3100,8 +3350,21 @@ fun AddPerformanceDialog(
     
     var opponent by remember { mutableStateOf("") }
     var selectedFormat by remember { mutableStateOf("T20") }
+
+    val playerAgeGroups = remember(chosenPlayerIndex, players, ageGroups) {
+        val player = players.getOrNull(chosenPlayerIndex)
+        val list = player?.getAssignedAgeGroupsList() ?: emptyList()
+        if (list.isEmpty()) ageGroups else list
+    }
+
     var selectedAgeGroup by remember { 
-        mutableStateOf(if (ageGroups.contains("Adult")) "Adult" else ageGroups.firstOrNull() ?: "") 
+        mutableStateOf(if (playerAgeGroups.contains("Adult")) "Adult" else playerAgeGroups.firstOrNull() ?: "") 
+    }
+
+    LaunchedEffect(playerAgeGroups) {
+        if (!playerAgeGroups.contains(selectedAgeGroup)) {
+            selectedAgeGroup = playerAgeGroups.firstOrNull() ?: ""
+        }
     }
     
     // Batting stats toggle & inputs
@@ -3237,7 +3500,7 @@ fun AddPerformanceDialog(
                                 onDismissRequest = { dropdownExpanded = false },
                                 modifier = Modifier.fillMaxWidth(0.9f)
                             ) {
-                                ageGroups.forEach { group ->
+                                playerAgeGroups.forEach { group ->
                                     DropdownMenuItem(
                                         text = { Text(text = group, fontWeight = FontWeight.SemiBold) },
                                         onClick = {
@@ -3829,7 +4092,20 @@ fun EditPerformanceDialog(
 
     var opponent by remember { mutableStateOf(performance.opponent) }
     var selectedFormat by remember { mutableStateOf(performance.matchFormat) }
+
+    val playerAgeGroups = remember(chosenPlayerIndex, players, ageGroups) {
+        val player = players.getOrNull(chosenPlayerIndex)
+        val list = player?.getAssignedAgeGroupsList() ?: emptyList()
+        if (list.isEmpty()) ageGroups else list
+    }
+
     var selectedAgeGroup by remember { mutableStateOf(performance.ageGroup) }
+
+    LaunchedEffect(playerAgeGroups) {
+        if (!playerAgeGroups.contains(selectedAgeGroup)) {
+            selectedAgeGroup = playerAgeGroups.firstOrNull() ?: ""
+        }
+    }
 
     // Batting stats toggle & inputs
     var didBat by remember { mutableStateOf(performance.didBat) }
@@ -3972,7 +4248,7 @@ fun EditPerformanceDialog(
                                 onDismissRequest = { dropdownExpanded = false },
                                 modifier = Modifier.fillMaxWidth(0.9f)
                             ) {
-                                ageGroups.forEach { group ->
+                                playerAgeGroups.forEach { group ->
                                     DropdownMenuItem(
                                         text = { Text(text = group, fontWeight = FontWeight.SemiBold) },
                                         onClick = {
@@ -4374,9 +4650,10 @@ fun ManageAgeGroupsDialog(
 fun ProfilesManagementDialog(
     players: List<Player>,
     selectedPlayer: Player?,
+    globalAgeGroups: List<String>,
     onDismiss: () -> Unit,
     onSelectPlayer: (Player) -> Unit,
-    onAddPlayer: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?) -> Unit,
+    onAddPlayer: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?, assignedAgeGroups: String) -> Unit,
     onDeletePlayer: (Player) -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -4388,6 +4665,11 @@ fun ProfilesManagementDialog(
     var newRole by remember { mutableStateOf("Batter") }
     var selectedColorIndex by remember { mutableStateOf(0) }
     var profileImageUri by remember { mutableStateOf<String?>(null) }
+    var selectedAgeGroupsState by remember { mutableStateOf(globalAgeGroups.toSet()) }
+
+    LaunchedEffect(globalAgeGroups) {
+        selectedAgeGroupsState = globalAgeGroups.toSet()
+    }
     
     val rolesList = listOf("Batter", "Bowler", "All-Rounder", "Wicketkeeper")
     
@@ -4731,6 +5013,56 @@ fun ProfilesManagementDialog(
                         }
                         
                         Spacer(modifier = Modifier.height(12.dp))
+
+                        // Assigned Age Groups checkboxes
+                        Text(
+                            text = "Assigned Age Groups:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            globalAgeGroups.forEach { group ->
+                                val isSelected = selectedAgeGroupsState.contains(group)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            if (isSelected) {
+                                                selectedAgeGroupsState = selectedAgeGroupsState - group
+                                            } else {
+                                                selectedAgeGroupsState = selectedAgeGroupsState + group
+                                            }
+                                        }
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { checked ->
+                                            if (checked) {
+                                                selectedAgeGroupsState = selectedAgeGroupsState + group
+                                            } else {
+                                                selectedAgeGroupsState = selectedAgeGroupsState - group
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp).testTag("checkbox_add_profile_$group")
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = group,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
                         
                         // Theme color choice row
                         Column(modifier = Modifier.fillMaxWidth()) {
@@ -4772,14 +5104,15 @@ fun ProfilesManagementDialog(
                             }
                             Button(
                                 onClick = {
-                                    if (newName.isNotBlank()) {
+                                    if (newName.isNotBlank() && selectedAgeGroupsState.isNotEmpty()) {
                                         onAddPlayer(
                                             newName.trim(),
                                             newRole,
                                             if (newTeam.isBlank()) "Free Agent" else newTeam.trim(),
                                             if (newJersey.isBlank()) "0" else newJersey.trim(),
                                             selectedColorIndex,
-                                            profileImageUri
+                                            profileImageUri,
+                                            selectedAgeGroupsState.joinToString(",")
                                         )
                                         // Reset fields
                                         newName = ""
@@ -4788,10 +5121,11 @@ fun ProfilesManagementDialog(
                                         newRole = "Batter"
                                         selectedColorIndex = 0
                                         profileImageUri = null
+                                        selectedAgeGroupsState = globalAgeGroups.toSet()
                                         selectedTab = 0 // Switch back to see list
                                     }
                                 },
-                                enabled = newName.isNotBlank()
+                                enabled = newName.isNotBlank() && selectedAgeGroupsState.isNotEmpty()
                             ) {
                                 Text("Create Profile", fontWeight = FontWeight.Bold)
                             }
