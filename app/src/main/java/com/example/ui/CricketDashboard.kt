@@ -230,6 +230,7 @@ fun CricketDashboard(
                 globalAgeGroups = ageGroups,
                 playerPerformances = selectedPlayerPerformances,
                 onDismiss = { showEditPlayerDialog = false },
+                onAddAgeGroup = { viewModel.addAgeGroup(it) },
                 onConfirm = { name, role, team, jersey, colorIndex, profileImageUri, assignedAgeGroups ->
                     viewModel.updatePlayer(player.id, name, role, team, jersey, colorIndex, profileImageUri, assignedAgeGroups)
                     showEditPlayerDialog = false
@@ -270,6 +271,7 @@ fun CricketDashboard(
             globalAgeGroups = ageGroups,
             onDismiss = { showSwitchProfilesDialog = false },
             onSelectPlayer = { viewModel.selectPlayer(it) },
+            onAddAgeGroup = { viewModel.addAgeGroup(it) },
             onAddPlayer = { name, role, team, jersey, colorIndex, uri, assignedAgeGroups ->
                 viewModel.addPlayer(name, role, team, jersey, colorIndex, uri, assignedAgeGroups)
             },
@@ -305,21 +307,22 @@ fun CricketHeroSection(
                 val widthPx = size.width
                 val heightPx = size.height
                 val stripeWidth = 55.dp.toPx()
-                
-                var xOffset = -heightPx
-                while (xOffset < widthPx) {
-                    val path = Path().apply {
-                        moveTo(xOffset, 0f)
-                        lineTo(xOffset + stripeWidth, 0f)
-                        lineTo(xOffset + stripeWidth + heightPx, heightPx)
-                        lineTo(xOffset + heightPx, heightPx)
-                        close()
+                if (stripeWidth > 0.001f) {
+                    var xOffset = -heightPx
+                    while (xOffset < widthPx) {
+                        val path = Path().apply {
+                            moveTo(xOffset, 0f)
+                            lineTo(xOffset + stripeWidth, 0f)
+                            lineTo(xOffset + stripeWidth + heightPx, heightPx)
+                            lineTo(xOffset + heightPx, heightPx)
+                            close()
+                        }
+                        drawPath(
+                            path = path,
+                            color = TurfGreenClassic.copy(alpha = 0.45f)
+                        )
+                        xOffset += stripeWidth * 2f
                     }
-                    drawPath(
-                        path = path,
-                        color = TurfGreenClassic.copy(alpha = 0.45f)
-                    )
-                    xOffset += stripeWidth * 2f
                 }
 
                 // Smooth darkening shadow gradient
@@ -3015,7 +3018,8 @@ fun EditPlayerDialog(
     globalAgeGroups: List<String>,
     playerPerformances: List<MatchPerformance>,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?, assignedAgeGroups: String) -> Unit
+    onConfirm: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?, assignedAgeGroups: String) -> Unit,
+    onAddAgeGroup: (String) -> Unit
 ) {
     var name by remember { mutableStateOf(player.name) }
     var team by remember { mutableStateOf(player.team) }
@@ -3027,8 +3031,17 @@ fun EditPlayerDialog(
     val matchAgeGroups = remember(playerPerformances) {
         playerPerformances.map { it.ageGroup }.toSet()
     }
+    
+    var localAgeGroupOptions by remember {
+        mutableStateOf((globalAgeGroups + player.getAssignedAgeGroupsList()).distinct())
+    }
+
     var selectedAgeGroupsState by remember {
-        mutableStateOf(player.getAssignedAgeGroupsList().toSet())
+        val general = player.getGeneralAgeGroups()
+        mutableStateOf(if (general.isNotEmpty()) general.toSet() else player.getAssignedAgeGroupsList().toSet())
+    }
+    var yearlyAgeGroupsState by remember {
+        mutableStateOf(player.getYearlyAgeGroupsMap())
     }
 
     val rolesList = listOf("Batter", "Bowler", "All-Rounder", "Wicketkeeper")
@@ -3199,8 +3212,8 @@ fun EditPlayerDialog(
 
                 // Assigned Age Groups Selection
                 Text(
-                    text = "Assigned Age Groups:",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = "Assigned General Age Groups:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -3208,7 +3221,7 @@ fun EditPlayerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    globalAgeGroups.forEach { group ->
+                    localAgeGroupOptions.forEach { group ->
                         val hasMatch = matchAgeGroups.contains(group)
                         val isSelected = selectedAgeGroupsState.contains(group)
                         Row(
@@ -3262,12 +3275,174 @@ fun EditPlayerDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Custom Age Group Input Row inside Edit Profile Dialog
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    var customAgeGroupInput by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = customAgeGroupInput,
+                        onValueChange = { customAgeGroupInput = it },
+                        label = { Text("Add Custom Age Group (e.g. U13)") },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val trimmed = customAgeGroupInput.trim()
+                            if (trimmed.isNotEmpty()) {
+                                localAgeGroupOptions = (localAgeGroupOptions + trimmed).distinct()
+                                selectedAgeGroupsState = selectedAgeGroupsState + trimmed
+                                onAddAgeGroup(trimmed)
+                                customAgeGroupInput = ""
+                            }
+                        },
+                        enabled = customAgeGroupInput.isNotBlank()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Custom Age Group"
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Yearly overrides customization
+                Text(
+                    text = "Yearly Age Group Customizations:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Define the specific age groups this player belongs to for each year. If configured, they override the general age groups for matches played in that year.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+
+                val activeAndSampleYears = remember(playerPerformances) {
+                    val sdf = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault())
+                    val matchYears = playerPerformances.map { sdf.format(java.util.Date(it.date)) }.toSet()
+                    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR).toString()
+                    (matchYears + currentYear + (currentYear.toInt() - 1).toString() + (currentYear.toInt() + 1).toString()).distinct().sortedDescending()
+                }
+
+                val allYearOptionsToDisplay = remember(activeAndSampleYears, yearlyAgeGroupsState) {
+                    (activeAndSampleYears + yearlyAgeGroupsState.keys).distinct().sortedDescending()
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    allYearOptionsToDisplay.forEach { year ->
+                        val assignedList = yearlyAgeGroupsState[year] ?: emptyList()
+                        val isCustomized = yearlyAgeGroupsState.containsKey(year)
+
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isCustomized) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isCustomized) MaterialTheme.colorScheme.primary.copy(alpha = 0.02f)
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.01f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Year $year",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = if (isCustomized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+
+                                    TextButton(
+                                        onClick = {
+                                            if (isCustomized) {
+                                                yearlyAgeGroupsState = yearlyAgeGroupsState - year
+                                            } else {
+                                                yearlyAgeGroupsState = yearlyAgeGroupsState + (year to selectedAgeGroupsState.toList())
+                                            }
+                                        },
+                                        colors = ButtonDefaults.textButtonColors(
+                                            contentColor = if (isCustomized) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Text(
+                                            text = if (isCustomized) "Revert to General" else "Customize Yearly",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                    }
+                                }
+
+                                if (isCustomized) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Select active age groups for Year $year:",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        localAgeGroupOptions.forEach { group ->
+                                            val isSelectedForThisYear = assignedList.contains(group)
+                                            FilterChip(
+                                                selected = isSelectedForThisYear,
+                                                onClick = {
+                                                    val updatedList = if (isSelectedForThisYear) {
+                                                        assignedList - group
+                                                    } else {
+                                                        assignedList + group
+                                                    }
+                                                    yearlyAgeGroupsState = yearlyAgeGroupsState + (year to updatedList)
+                                                },
+                                                label = { Text(group, fontWeight = FontWeight.SemiBold) }
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Using General Age Groups: " + (if (selectedAgeGroupsState.isEmpty()) "None" else selectedAgeGroupsState.joinToString(", ")),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Profile color indices selection
                 Text(
                     text = "Profile Theme Color:",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -3302,19 +3477,33 @@ fun EditPlayerDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                        Text("Cancel", fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            if (name.isNotBlank() && selectedAgeGroupsState.isNotEmpty()) {
+                            if (name.isNotBlank() && (selectedAgeGroupsState.isNotEmpty() || yearlyAgeGroupsState.isNotEmpty())) {
+                                val combinedList = mutableListOf<String>()
+                                // 1. Map yearly mappings first, e.g. "year:group"
+                                yearlyAgeGroupsState.forEach { (year, groups) ->
+                                    groups.forEach { group ->
+                                        combinedList.add("$year:$group")
+                                    }
+                                }
+                                // 2. Map standard general selections as is
+                                selectedAgeGroupsState.forEach { group ->
+                                    if (!combinedList.contains(group)) {
+                                        combinedList.add(group)
+                                    }
+                                }
+                                
                                 onConfirm(
                                     name,
                                     selectedRole,
@@ -3322,11 +3511,11 @@ fun EditPlayerDialog(
                                     jersey,
                                     selectedColorIndex,
                                     profileImageUri,
-                                    selectedAgeGroupsState.joinToString(",")
+                                    combinedList.joinToString(",")
                                 )
                             }
                         },
-                        enabled = name.isNotBlank() && selectedAgeGroupsState.isNotEmpty(),
+                        enabled = name.isNotBlank() && (selectedAgeGroupsState.isNotEmpty() || yearlyAgeGroupsState.isNotEmpty()),
                         modifier = Modifier.testTag("player_confirm_button")
                     ) {
                         Text("Save Changes", fontWeight = FontWeight.Bold)
@@ -3382,12 +3571,22 @@ fun AddPerformanceDialog(
         if (list.isEmpty()) ageGroups else list
     }
 
-    var selectedAgeGroup by remember { 
-        mutableStateOf(if (playerAgeGroups.contains("Adult")) "Adult" else playerAgeGroups.firstOrNull() ?: "") 
+    val activeYearStr = remember(selectedDate) {
+        val ySdf = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault())
+        ySdf.format(java.util.Date(selectedDate))
     }
 
-    LaunchedEffect(playerAgeGroups) {
-        if (!playerAgeGroups.contains(selectedAgeGroup)) {
+    var selectedAgeGroup by remember { 
+        mutableStateOf("") 
+    }
+
+    LaunchedEffect(chosenPlayerIndex, activeYearStr, playerAgeGroups) {
+        val player = players.getOrNull(chosenPlayerIndex)
+        val suggestedList = player?.getAgeGroupsForYear(activeYearStr) ?: emptyList()
+        val matchSuggest = suggestedList.firstOrNull { playerAgeGroups.contains(it) }
+        if (matchSuggest != null) {
+            selectedAgeGroup = matchSuggest
+        } else if (selectedAgeGroup.isEmpty() || !playerAgeGroups.contains(selectedAgeGroup)) {
             selectedAgeGroup = playerAgeGroups.firstOrNull() ?: ""
         }
     }
@@ -3807,9 +4006,32 @@ fun AgeGroupComparisonReport(
     viewModel: CricketViewModel
 ) {
     val statsAll = remember(allPerformances) { viewModel.computeStats(allPerformances) }
-    val statsU15 = remember(allPerformances) { viewModel.computeStats(allPerformances.filter { it.ageGroup == "U15" }) }
-    val statsU17 = remember(allPerformances) { viewModel.computeStats(allPerformances.filter { it.ageGroup == "U17" }) }
-    val statsAdult = remember(allPerformances) { viewModel.computeStats(allPerformances.filter { it.ageGroup == "Adult" }) }
+    val ageGroupsSet by viewModel.ageGroupsFlow.collectAsStateWithLifecycle(initialValue = setOf("U15", "U17", "Adult"))
+
+    val reportAgeGroups = remember(allPerformances, ageGroupsSet) {
+        (ageGroupsSet + allPerformances.map { it.ageGroup }).filter { it.isNotBlank() }.distinct().sorted()
+    }
+
+    val itemColors = remember {
+        listOf(
+            Color(0xFF1E88E5), // Blue
+            Color(0xFF8E24AA), // Purple
+            Color(0xFFD81B60), // Magenta
+            Color(0xFFFFB300), // Amber
+            Color(0xFF00ACC1), // Cyan
+            Color(0xFF43A047), // Green
+            Color(0xFFF4511E)  // Deep Orange
+        )
+    }
+
+    val reportItems = remember(reportAgeGroups, allPerformances, statsAll) {
+        val items = reportAgeGroups.mapIndexed { index, group ->
+            val stats = viewModel.computeStats(allPerformances.filter { it.ageGroup == group })
+            val color = itemColors.getOrElse(index % itemColors.size) { Color.Gray }
+            Quadruple("$group Team", stats, color, group)
+        }
+        items + Quadruple("All Groups", statsAll, TurfGreenClassic, "All")
+    }
 
     Card(
         shape = RoundedCornerShape(18.dp),
@@ -3846,12 +4068,7 @@ fun AgeGroupComparisonReport(
                 Text(text = "Econ", modifier = Modifier.weight(0.6f), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 10.sp), textAlign = TextAlign.Center)
             }
 
-            listOf(
-                Quadruple("U15 Team", statsU15, Color(0xFF1E88E5), "U15"),
-                Quadruple("U17 Team", statsU17, Color(0xFF8E24AA), "U17"),
-                Quadruple("Adults", statsAdult, Color(0xFFE53935), "Adult"),
-                Quadruple("All Groups", statsAll, TurfGreenClassic, "All")
-            ).forEach { item ->
+            reportItems.forEach { item ->
                 val groupStats = item.stats
                 Row(
                     modifier = Modifier
@@ -4124,10 +4341,20 @@ fun EditPerformanceDialog(
         if (list.isEmpty()) ageGroups else list
     }
 
+    val activeYearStr = remember(selectedDate) {
+        val ySdf = java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault())
+        ySdf.format(java.util.Date(selectedDate))
+    }
+
     var selectedAgeGroup by remember { mutableStateOf(performance.ageGroup) }
 
-    LaunchedEffect(playerAgeGroups) {
-        if (!playerAgeGroups.contains(selectedAgeGroup)) {
+    LaunchedEffect(chosenPlayerIndex, activeYearStr, playerAgeGroups) {
+        val player = players.getOrNull(chosenPlayerIndex)
+        val suggestedList = player?.getAgeGroupsForYear(activeYearStr) ?: emptyList()
+        val matchSuggest = suggestedList.firstOrNull { playerAgeGroups.contains(it) }
+        if (player?.id != performance.playerId && matchSuggest != null) {
+            selectedAgeGroup = matchSuggest
+        } else if (!playerAgeGroups.contains(selectedAgeGroup)) {
             selectedAgeGroup = playerAgeGroups.firstOrNull() ?: ""
         }
     }
@@ -4679,7 +4906,8 @@ fun ProfilesManagementDialog(
     onDismiss: () -> Unit,
     onSelectPlayer: (Player) -> Unit,
     onAddPlayer: (name: String, role: String, team: String, jersey: String, colorIndex: Int, profileImageUri: String?, assignedAgeGroups: String) -> Unit,
-    onDeletePlayer: (Player) -> Unit
+    onDeletePlayer: (Player) -> Unit,
+    onAddAgeGroup: (String) -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     
@@ -4690,9 +4918,15 @@ fun ProfilesManagementDialog(
     var newRole by remember { mutableStateOf("Batter") }
     var selectedColorIndex by remember { mutableStateOf(0) }
     var profileImageUri by remember { mutableStateOf<String?>(null) }
+    
+    var localAgeGroupOptions by remember(globalAgeGroups) {
+        mutableStateOf(globalAgeGroups)
+    }
     var selectedAgeGroupsState by remember { mutableStateOf(globalAgeGroups.toSet()) }
+    var yearlyAgeGroupsState by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
 
     LaunchedEffect(globalAgeGroups) {
+        localAgeGroupOptions = globalAgeGroups
         selectedAgeGroupsState = globalAgeGroups.toSet()
     }
     
@@ -5041,9 +5275,9 @@ fun ProfilesManagementDialog(
 
                         // Assigned Age Groups checkboxes
                         Text(
-                            text = "Assigned Age Groups:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            text = "Assigned General Age Groups:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -5051,7 +5285,7 @@ fun ProfilesManagementDialog(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            globalAgeGroups.forEach { group ->
+                            localAgeGroupOptions.forEach { group ->
                                 val isSelected = selectedAgeGroupsState.contains(group)
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -5087,14 +5321,169 @@ fun ProfilesManagementDialog(
                             }
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Custom Age Group Input Row inside New Profile Dialog
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            var customAgeGroupInput by remember { mutableStateOf("") }
+                            OutlinedTextField(
+                                value = customAgeGroupInput,
+                                onValueChange = { customAgeGroupInput = it },
+                                label = { Text("Add Custom Age Group (e.g. U13)") },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    val trimmed = customAgeGroupInput.trim()
+                                    if (trimmed.isNotEmpty()) {
+                                        localAgeGroupOptions = (localAgeGroupOptions + trimmed).distinct()
+                                        selectedAgeGroupsState = selectedAgeGroupsState + trimmed
+                                        onAddAgeGroup(trimmed)
+                                        customAgeGroupInput = ""
+                                    }
+                                },
+                                enabled = customAgeGroupInput.isNotBlank()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add Custom Age Group"
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Yearly override mapping for creation dialog
+                        Text(
+                            text = "Yearly Age Group Override Customizations:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "Assign specific age groups to different years if needed.",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        )
+
+                        val currentYearInt = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
+                        val customYearOptions = listOf((currentYearInt - 1).toString(), currentYearInt.toString(), (currentYearInt + 1).toString()).sortedDescending()
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            customYearOptions.forEach { year ->
+                                val assignedList = yearlyAgeGroupsState[year] ?: emptyList()
+                                val isCustomized = yearlyAgeGroupsState.containsKey(year)
+
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isCustomized) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                    ),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isCustomized) MaterialTheme.colorScheme.primary.copy(alpha = 0.02f)
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.01f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Year $year",
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = if (isCustomized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+
+                                            TextButton(
+                                                onClick = {
+                                                    if (isCustomized) {
+                                                        yearlyAgeGroupsState = yearlyAgeGroupsState - year
+                                                    } else {
+                                                        yearlyAgeGroupsState = yearlyAgeGroupsState + (year to selectedAgeGroupsState.toList())
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    contentColor = if (isCustomized) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                                )
+                                            ) {
+                                                Text(
+                                                    text = if (isCustomized) "Revert to General" else "Customize Yearly",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                                )
+                                            }
+                                        }
+
+                                        if (isCustomized) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Select active age groups for Year $year:",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                localAgeGroupOptions.forEach { group ->
+                                                    val isSelectedForThisYear = assignedList.contains(group)
+                                                    FilterChip(
+                                                        selected = isSelectedForThisYear,
+                                                        onClick = {
+                                                            val updatedList = if (isSelectedForThisYear) {
+                                                                assignedList - group
+                                                            } else {
+                                                                assignedList + group
+                                                            }
+                                                            yearlyAgeGroupsState = yearlyAgeGroupsState + (year to updatedList)
+                                                        },
+                                                        label = { Text(group, fontWeight = FontWeight.SemiBold) }
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "Using General Age Groups: " + (if (selectedAgeGroupsState.isEmpty()) "None" else selectedAgeGroupsState.joinToString(", ")),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                         Spacer(modifier = Modifier.height(12.dp))
                         
                         // Theme color choice row
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 text = "Profile Color Accent Theme:",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
@@ -5129,7 +5518,19 @@ fun ProfilesManagementDialog(
                             }
                             Button(
                                 onClick = {
-                                    if (newName.isNotBlank() && selectedAgeGroupsState.isNotEmpty()) {
+                                    if (newName.isNotBlank() && (selectedAgeGroupsState.isNotEmpty() || yearlyAgeGroupsState.isNotEmpty())) {
+                                        val combinedList = mutableListOf<String>()
+                                        yearlyAgeGroupsState.forEach { (year, groups) ->
+                                            groups.forEach { group ->
+                                                combinedList.add("$year:$group")
+                                            }
+                                        }
+                                        selectedAgeGroupsState.forEach { group ->
+                                            if (!combinedList.contains(group)) {
+                                                combinedList.add(group)
+                                            }
+                                        }
+
                                         onAddPlayer(
                                             newName.trim(),
                                             newRole,
@@ -5137,7 +5538,7 @@ fun ProfilesManagementDialog(
                                             if (newJersey.isBlank()) "0" else newJersey.trim(),
                                             selectedColorIndex,
                                             profileImageUri,
-                                            selectedAgeGroupsState.joinToString(",")
+                                            combinedList.joinToString(",")
                                         )
                                         // Reset fields
                                         newName = ""
@@ -5146,11 +5547,13 @@ fun ProfilesManagementDialog(
                                         newRole = "Batter"
                                         selectedColorIndex = 0
                                         profileImageUri = null
+                                        localAgeGroupOptions = globalAgeGroups
                                         selectedAgeGroupsState = globalAgeGroups.toSet()
+                                        yearlyAgeGroupsState = emptyMap()
                                         selectedTab = 0 // Switch back to see list
                                     }
                                 },
-                                enabled = newName.isNotBlank() && selectedAgeGroupsState.isNotEmpty()
+                                enabled = newName.isNotBlank() && (selectedAgeGroupsState.isNotEmpty() || yearlyAgeGroupsState.isNotEmpty())
                             ) {
                                 Text("Create Profile", fontWeight = FontWeight.Bold)
                             }
